@@ -235,9 +235,11 @@ export function buildCodeMirrorTheme(theme: CodeMirrorThemeInput): Extension[] {
 
   // Build syntax highlighting from Zed syntax tokens
   const syntax = theme.zedTheme?.style?.syntax
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const highlightStyles: any[] = []
 
   if (syntax) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const map: [string, any][] = [
       ['keyword', tags.keyword],
       ['string', tags.string],
@@ -267,6 +269,7 @@ export function buildCodeMirrorTheme(theme: CodeMirrorThemeInput): Extension[] {
     for (const [zedToken, cmTag] of map) {
       const style = syntax[zedToken]
       if (!style?.color) continue
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const entry: any = { tag: cmTag, color: style.color }
       if (style.font_style === 'italic') entry.fontStyle = 'italic'
       if (style.font_weight && style.font_weight >= 700) entry.fontWeight = 'bold'

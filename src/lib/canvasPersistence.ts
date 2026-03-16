@@ -1,10 +1,10 @@
-import { getSnapshot, loadSnapshot, type Editor } from 'tldraw'
+import { getSnapshot, loadSnapshot, type Editor, type TLStoreSnapshot, type TLSessionStateSnapshot } from 'tldraw'
 import { invoke } from '@tauri-apps/api/core'
 
 interface HumanboardSnapshot {
   humanboardVersion: number
-  document: any
-  session: any
+  document: TLStoreSnapshot
+  session: TLSessionStateSnapshot
 }
 
 export async function saveCanvasState(editor: Editor, vaultPath: string): Promise<void> {

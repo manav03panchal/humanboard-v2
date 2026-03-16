@@ -69,12 +69,17 @@ interface SidebarTreeViewProps {
 }
 
 export function SidebarTreeView({ entries, searchQuery, onFileClick }: SidebarTreeViewProps) {
-  if (searchQuery) {
+  const tree = useMemo(() => buildTree(entries), [entries])
+
+  const filtered = useMemo(() => {
+    if (!searchQuery) return null
     const q = searchQuery.toLowerCase()
-    const filtered = entries
+    return entries
       .filter((f) => !f.isDir && f.name.toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name))
+  }, [entries, searchQuery])
 
+  if (filtered) {
     return (
       <div style={{ overflow: 'auto', flex: 1 }}>
         {filtered.map((f) => (
@@ -83,8 +88,6 @@ export function SidebarTreeView({ entries, searchQuery, onFileClick }: SidebarTr
       </div>
     )
   }
-
-  const tree = useMemo(() => buildTree(entries), [entries])
 
   return (
     <div style={{ overflow: 'auto', flex: 1 }}>

@@ -1,5 +1,5 @@
 import {
-  FileCode, FileText, FileJson, Image, File, Folder, FolderOpen, Terminal, Globe, FileType,
+  FileCode, FileText, FileJson, Image, File, Folder, FolderOpen, FileType,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -17,5 +17,3 @@ export function getFileIcon(filePath: string, isDir: boolean, isOpen?: boolean):
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
   return EXT_ICONS[ext] ?? File
 }
-
-export { Terminal as TerminalIcon, Globe as BrowserIcon }
