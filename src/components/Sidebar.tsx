@@ -4,6 +4,7 @@ import { useVaultStore } from '../stores/vaultStore'
 import { SidebarVaultDropdown } from './SidebarVaultDropdown'
 import { SidebarSearch } from './SidebarSearch'
 import { SidebarFileList } from './SidebarFileList'
+import { SidebarContextMenu, type ContextMenuState } from './SidebarContextMenu'
 import { useToastStore } from './Toast'
 import { ArrowUpDown, PanelLeftClose } from 'lucide-react'
 import { usePlatform } from '../hooks/usePlatform'
@@ -21,6 +22,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
   const loadFileTree = useVaultStore((s) => s.loadFileTree)
   const [searchQuery, setSearchQuery] = useState('')
   const [isDragOver, setIsDragOver] = useState(false)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [width, setWidth] = useState(260)
   const isResizing = useRef(false)
   const os = usePlatform()
@@ -147,7 +149,10 @@ export function Sidebar({ onFileClick }: SidebarProps) {
           {sidebarSort === 'date' ? 'Created' : 'A-Z'}
         </button>
       </div>
-      <SidebarFileList searchQuery={searchQuery} onFileClick={onFileClick} />
+      <SidebarFileList searchQuery={searchQuery} onFileClick={onFileClick} onContextMenu={setContextMenu} />
+      {contextMenu && (
+        <SidebarContextMenu menu={contextMenu} onClose={() => setContextMenu(null)} />
+      )}
       {/* Resize handle */}
       <div
         onPointerDown={handleResizeStart}

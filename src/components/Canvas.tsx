@@ -178,6 +178,26 @@ export function Canvas() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  // Cmd+N shortcut to create note
+  useEffect(() => {
+    const handleNoteKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault()
+        const editor = editorRef.current
+        if (!editor) return
+        const { x, y } = editor.getViewportPageBounds().center
+        editor.createShape({
+          type: 'note-shape',
+          x: x - 150,
+          y: y - 125,
+          props: { w: 300, h: 250, content: '' },
+        })
+      }
+    }
+    window.addEventListener('keydown', handleNoteKeyDown)
+    return () => window.removeEventListener('keydown', handleNoteKeyDown)
+  }, [])
+
   // Expose editor ref for sidebar drag-drop
   useEffect(() => {
     (window as any).__humanboard_editor = editorRef

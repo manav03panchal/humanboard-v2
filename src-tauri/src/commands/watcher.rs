@@ -41,12 +41,20 @@ pub fn watch_vault(app: AppHandle, vault_path: String) -> Result<(), String> {
 
             for path in &event.paths {
                 let path_str = path.to_string_lossy();
-                let should_skip = skip_dirs.iter().any(|dir| {
-                    path_str.contains(&format!("/{dir}/"))
-                        || path_str.contains(&format!("\\{dir}\\"))
-                });
+
+                let is_theme_file = path_str.ends_with(".humanboard/theme.json")
+                    || path_str.ends_with(".humanboard\\theme.json");
+                let should_skip = !is_theme_file
+                    && skip_dirs.iter().any(|dir| {
+                        path_str.contains(&format!("/{dir}/"))
+                            || path_str.contains(&format!("\\{dir}\\"))
+                    });
                 if should_skip {
                     continue;
+                }
+
+                if is_theme_file && kind == "modify" {
+                    let _ = app_handle.emit("theme:changed", ());
                 }
 
                 if let Ok(relative) = path.strip_prefix(&vault_root_clone) {

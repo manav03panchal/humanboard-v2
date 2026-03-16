@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react'
 import { getFileIcon } from '../lib/fileIcons'
 import { getLanguageName } from '../lib/language'
+import type { ContextMenuState } from './SidebarContextMenu'
 
 interface SidebarFileItemProps {
   name: string
@@ -8,9 +9,10 @@ interface SidebarFileItemProps {
   isDir: boolean
   modifiedAt: number
   onClick: (path: string) => void
+  onContextMenu?: (state: ContextMenuState) => void
 }
 
-export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir, modifiedAt, onClick }: SidebarFileItemProps) {
+export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir, modifiedAt, onClick, onContextMenu }: SidebarFileItemProps) {
   const Icon = getFileIcon(path, isDir)
   const dateStr = formatDate(modifiedAt)
 
@@ -50,6 +52,11 @@ export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir
     <button
       onClick={() => onClick(path)}
       onMouseDown={handleMouseDown}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onContextMenu?.({ x: e.clientX, y: e.clientY, path, isDir })
+      }}
       style={{
         display: 'flex',
         alignItems: 'center',
