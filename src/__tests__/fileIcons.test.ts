@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { getFileIcon } from '../lib/fileIcons'
-import {
-  FileCode, FileText, FileJson, Image, File, Folder, FolderOpen, FileType,
-} from 'lucide-react'
+import { Image, File, Folder, FolderOpen, FileType, FileText } from 'lucide-react'
+import { SiTypescript, SiReact, SiJavascript, SiRust, SiPython, SiCss, SiHtml5, SiMarkdown } from 'react-icons/si'
+import { VscJson } from 'react-icons/vsc'
 
 describe('getFileIcon', () => {
   it('returns Folder for directories', () => {
@@ -13,23 +13,26 @@ describe('getFileIcon', () => {
     expect(getFileIcon('src', true, true)).toBe(FolderOpen)
   })
 
-  it('returns FileCode for code files', () => {
-    expect(getFileIcon('main.ts', false)).toBe(FileCode)
-    expect(getFileIcon('App.tsx', false)).toBe(FileCode)
-    expect(getFileIcon('index.js', false)).toBe(FileCode)
-    expect(getFileIcon('Component.jsx', false)).toBe(FileCode)
-    expect(getFileIcon('main.rs', false)).toBe(FileCode)
-    expect(getFileIcon('script.py', false)).toBe(FileCode)
-    expect(getFileIcon('styles.css', false)).toBe(FileCode)
-    expect(getFileIcon('index.html', false)).toBe(FileCode)
+  it('returns language icons for code files', () => {
+    expect(getFileIcon('main.ts', false)).toBe(SiTypescript)
+    expect(getFileIcon('App.tsx', false)).toBe(SiReact)
+    expect(getFileIcon('index.js', false)).toBe(SiJavascript)
+    expect(getFileIcon('Component.jsx', false)).toBe(SiReact)
+    expect(getFileIcon('main.rs', false)).toBe(SiRust)
+    expect(getFileIcon('script.py', false)).toBe(SiPython)
+    expect(getFileIcon('styles.css', false)).toBe(SiCss)
+    expect(getFileIcon('index.html', false)).toBe(SiHtml5)
   })
 
-  it('returns FileJson for json files', () => {
-    expect(getFileIcon('package.json', false)).toBe(FileJson)
+  it('returns VscJson for json files', () => {
+    expect(getFileIcon('package.json', false)).toBe(SiJavascript) // package.json has special name icon
   })
 
-  it('returns FileText for text files', () => {
-    expect(getFileIcon('README.md', false)).toBe(FileText)
+  it('returns SiMarkdown for markdown files', () => {
+    expect(getFileIcon('README.md', false)).toBe(SiMarkdown)
+  })
+
+  it('returns FileText for txt files', () => {
     expect(getFileIcon('notes.txt', false)).toBe(FileText)
   })
 
@@ -53,5 +56,11 @@ describe('getFileIcon', () => {
 
   it('returns generic File for files with no extension', () => {
     expect(getFileIcon('Makefile', false)).toBe(File)
+  })
+
+  it('returns special icons for known filenames', () => {
+    expect(getFileIcon('Cargo.toml', false)).toBe(SiRust)
+    expect(getFileIcon('tsconfig.json', false)).toBe(SiTypescript)
+    expect(getFileIcon('package.json', false)).toBe(SiJavascript)
   })
 })

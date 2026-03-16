@@ -12,6 +12,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { spawn } from 'tauri-pty'
 import { useThemeStore } from '../lib/theme'
 import { usePtyStore } from '../stores/ptyStore'
+import { useVaultStore } from '../stores/vaultStore'
 import { useCallback, useRef, useEffect, useState } from 'react'
 import { Terminal as TerminalIcon, X } from 'lucide-react'
 
@@ -66,10 +67,6 @@ export class TerminalShapeUtil extends BaseBoxShapeUtil<TerminalShape> {
 
 function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
   const editor = useEditor()
-  const editorRef = useRef(editor)
-  editorRef.current = editor
-  const shapeIdRef = useRef(shape.id)
-  shapeIdRef.current = shape.id
   const [focused, setFocused] = useState(false)
   const termContainerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -150,51 +147,56 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
 
     // Spawn PTY
     const shellPath = shape.props.shell || '/bin/zsh'
+    const cwd = useVaultStore.getState().vaultPath || undefined
     try {
       const pty = spawn(shellPath, [], {
         cols: term.cols,
         rows: term.rows,
+        cwd: cwd || undefined,
         name: 'xterm-256color',
       })
 
       ptyRef.current = pty
       addSession(shape.id, shape.id, shellPath)
 
-      // Close shape helper — must be defined before anything references it
-      const closeShape = () => {
-        if (isCleaningUp.current) return
-        isCleaningUp.current = true
-        removeSession(shapeIdRef.current)
-        setTimeout(() => {
-          try {
-            editorRef.current.deleteShape(shapeIdRef.current)
-          } catch {}
-        }, 100)
-      }
-
-      // PTY data -> xterm (data arrives as Uint8Array from tauri-pty)
-      pty.onData((data: Uint8Array) => {
-        term.write(new Uint8Array(data))
+      // PTY data -> xterm
+      pty.onData((data: any) => {
+        try {
+          if (typeof data === 'string') {
+            term.write(data)
+          } else if (data instanceof Uint8Array) {
+            term.write(data)
+          } else if (Array.isArray(data)) {
+            term.write(new Uint8Array(data))
+          } else if (data && typeof data === 'object') {
+            // Could be array-like from Tauri IPC serialization
+            const arr = Object.values(data) as number[]
+            term.write(new Uint8Array(arr))
+          } else {
+            term.write(String(data))
+          }
+        } catch (e) {
+          console.error('xterm write error:', e, 'data:', typeof data, JSON.stringify(data).slice(0, 200))
+        }
       })
 
       // xterm input -> PTY
       term.onData((data: string) => {
         try {
           pty.write(data)
-        } catch {
-          closeShape()
+        } catch (e) {
+          console.error('pty write error:', e)
         }
       })
 
-      // Handle PTY exit — this is the primary close mechanism
-      pty.onExit(({ exitCode }: { exitCode: number; signal?: number }) => {
-        console.log(`PTY exited with code ${exitCode}`)
-        closeShape()
-      })
-
-      // Resize handler
-      term.onResize((e: { cols: number; rows: number }) => {
-        try { pty.resize(e.cols, e.rows) } catch {}
+      // Handle PTY exit — close the node (only if user exited, not cleanup)
+      pty.onExit(() => {
+        removeSession(shape.id)
+        if (!isCleaningUp.current) {
+          setTimeout(() => {
+            editor.deleteShape(shape.id as any)
+          }, 100)
+        }
       })
     } catch (err) {
       console.error('PTY spawn failed:', err)
@@ -232,15 +234,6 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
     }
 
     return () => resizeObserver.disconnect()
-  }, [])
-
-  // Capture wheel at DOM level to prevent tldraw zoom
-  useEffect(() => {
-    const el = termContainerRef.current
-    if (!el) return
-    const stop = (e: WheelEvent) => e.stopPropagation()
-    el.addEventListener('wheel', stop, true)
-    return () => el.removeEventListener('wheel', stop, true)
   }, [])
 
   const handlePointerDown = useCallback(
@@ -370,6 +363,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
           e.stopPropagation()
         }}
         onKeyUp={(e) => { if (focused) e.stopPropagation() }}
+        onWheel={(e) => e.stopPropagation()}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />
