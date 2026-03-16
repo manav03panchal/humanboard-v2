@@ -36,7 +36,33 @@ export function Canvas() {
   )
 
   useEffect(() => {
+    const handleOpenFile = (e: Event) => {
+      const editor = editorRef.current
+      if (!editor) return
+      const { filePath, language } = (e as CustomEvent).detail
+      // Check if shape already exists for this file
+      const existing = editor.getCurrentPageShapes().find(
+        (s) => s.type === 'code-shape' && (s as any).props.filePath === filePath
+      )
+      if (existing) {
+        editor.select(existing.id)
+        editor.zoomToSelection()
+        return
+      }
+      // Create new shape at center of viewport
+      const { x, y } = editor.getViewportPageBounds().center
+      editor.createShape({
+        type: 'code-shape',
+        x: x - 300,
+        y: y - 200,
+        props: { filePath, language, w: 600, h: 400 },
+      })
+    }
+
+    window.addEventListener('humanboard:open-file', handleOpenFile)
+
     return () => {
+      window.removeEventListener('humanboard:open-file', handleOpenFile)
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     }
   }, [])
