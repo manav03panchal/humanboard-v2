@@ -6,6 +6,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_pty::init())
+        .plugin(tauri_plugin_os::init())
         .manage(commands::watcher::init_watcher_state())
         .manage(commands::lsp::init_lsp_state())
         .invoke_handler(tauri::generate_handler![

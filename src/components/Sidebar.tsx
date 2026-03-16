@@ -7,6 +7,7 @@ import { SidebarFileList } from './SidebarFileList'
 import { SidebarContextMenu, type ContextMenuState } from './SidebarContextMenu'
 import { useToastStore } from './Toast'
 import { ArrowUpDown, PanelLeftClose } from 'lucide-react'
+import { usePlatform } from '../hooks/usePlatform'
 
 interface SidebarProps {
   onFileClick: (path: string) => void
@@ -24,6 +25,8 @@ export function Sidebar({ onFileClick }: SidebarProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [width, setWidth] = useState(260)
   const isResizing = useRef(false)
+  const os = usePlatform()
+  const titlebarSpacerHeight = os === 'macos' ? 38 : 32
 
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
@@ -93,7 +96,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
       onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false) }}
       onDrop={handleDrop}
     >
-      <div style={{ height: 38 }} /> {/* titlebar spacer — clears traffic lights */}
+      <div style={{ height: titlebarSpacerHeight }} /> {/* titlebar spacer — clears traffic lights on macOS, custom titlebar on Win/Linux */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '4px 6px 4px 4px', borderBottom: '1px solid #1a1a1a', gap: 2 }}>
         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <SidebarVaultDropdown />
