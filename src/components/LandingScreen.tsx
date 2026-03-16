@@ -1,0 +1,112 @@
+import { open } from '@tauri-apps/plugin-dialog'
+import { invoke } from '@tauri-apps/api/core'
+import { FolderOpen, Folder } from 'lucide-react'
+import { useVaultStore } from '../stores/vaultStore'
+import { useToastStore } from './Toast'
+
+export function LandingScreen() {
+  const setVaultPath = useVaultStore((s) => s.setVaultPath)
+  const recentVaults = useVaultStore((s) => s.recentVaults)
+  const addToast = useToastStore((s) => s.addToast)
+
+  const handleOpenFolder = async () => {
+    const selected = await open({ directory: true, multiple: false })
+    if (!selected) return
+    try {
+      await invoke('init_vault', { path: selected })
+      setVaultPath(selected)
+    } catch (err) {
+      addToast(String(err))
+    }
+  }
+
+  const handleOpenRecent = async (path: string) => {
+    try {
+      await invoke('init_vault', { path })
+      setVaultPath(path)
+    } catch (err) {
+      addToast(`Vault directory not found: ${path}`)
+    }
+  }
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#000',
+        color: '#fff',
+        gap: 32,
+      }}
+    >
+      <h1 style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em' }}>
+        Humanboard
+      </h1>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 280 }}>
+        <button onClick={handleOpenFolder} style={actionButtonStyle}>
+          <FolderOpen size={18} strokeWidth={1.5} />
+          Open Folder / Codebase
+        </button>
+      </div>
+
+      {recentVaults.length > 0 && (
+        <div style={{ width: 280 }}>
+          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>Recent</p>
+          {recentVaults.map((vault) => (
+            <button
+              key={vault}
+              onClick={() => handleOpenRecent(vault)}
+              style={recentButtonStyle}
+            >
+              <Folder size={14} strokeWidth={1.5} color="#666" />
+              <span
+                style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {vault.replace(/^\/Users\/[^/]+/, '~')}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const actionButtonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '10px 16px',
+  backgroundColor: '#0a0a0a',
+  border: '1px solid #1a1a1a',
+  borderRadius: 8,
+  color: '#fff',
+  fontSize: 14,
+  cursor: 'pointer',
+  width: '100%',
+  textAlign: 'left',
+}
+
+const recentButtonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '6px 10px',
+  backgroundColor: 'transparent',
+  border: 'none',
+  borderRadius: 6,
+  color: '#999',
+  fontSize: 13,
+  cursor: 'pointer',
+  width: '100%',
+  textAlign: 'left',
+}
