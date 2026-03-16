@@ -104,6 +104,17 @@ export function Canvas() {
         container.style.setProperty('--tl-color-selection-fill', 'rgba(255,255,255,0.03)')
         container.style.setProperty('--tl-color-selected', 'rgba(255,255,255,0.3)')
         container.style.setProperty('--tl-color-primary', 'rgba(255,255,255,0.3)')
+
+        // NUCLEAR FIX: intercept ALL wheel events on the container in capture phase.
+        // If the event target is inside a shape's content area, stop it from reaching
+        // tldraw's gesture handler so the shape can scroll normally.
+        container.addEventListener('wheel', (e) => {
+          const target = e.target as HTMLElement
+          // Check if we're inside a shape's scrollable content
+          if (target.closest('.shape-content')) {
+            e.stopPropagation()
+          }
+        }, true) // capture phase — fires BEFORE tldraw's handler
       }
 
       // Enable grid (dot pattern)

@@ -136,7 +136,7 @@ function PdfShapeComponent({ shape }: { shape: PdfShape }) {
         </div>
       )}
       <div
-        ref={scrollRef}
+        className="shape-content" ref={scrollRef}
         style={{
           flex: 1,
           overflow: 'auto',

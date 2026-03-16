@@ -234,6 +234,7 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
       />
       <div
         ref={editorDivRef}
+        className="shape-content"
         style={{
           flex: 1,
           overflow: 'hidden',

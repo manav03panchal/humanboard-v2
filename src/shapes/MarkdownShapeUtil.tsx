@@ -255,7 +255,7 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
         }
       />
       <div
-        ref={editorDivRef}
+        className="shape-content" ref={editorDivRef}
         style={{
           flex: 1,
           overflow: 'auto',

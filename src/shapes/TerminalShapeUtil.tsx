@@ -193,9 +193,16 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
       pty.onExit(() => {
         removeSession(shape.id)
         if (!isCleaningUp.current) {
+          // Use setTimeout to let React finish any pending updates
           setTimeout(() => {
-            editor.deleteShape(shape.id as any)
-          }, 100)
+            try {
+              const shapes = editor.getCurrentPageShapes()
+              const exists = shapes.find((s) => s.id === shape.id)
+              if (exists) {
+                editor.deleteShape(shape.id)
+              }
+            } catch {}
+          }, 200)
         }
       })
     } catch (err) {
@@ -357,7 +364,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
       </div>
       <div
         ref={termContainerRef}
-        className="terminal-container"
+        className="shape-content terminal-container"
         style={{
           flex: 1,
           overflow: 'hidden',
