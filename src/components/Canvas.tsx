@@ -44,27 +44,44 @@ export function Canvas() {
   )
 
   useEffect(() => {
+    const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
+
     const handleOpenFile = (e: Event) => {
       const editor = editorRef.current
       if (!editor) return
       const { filePath, language } = (e as CustomEvent).detail
-      // Check if shape already exists for this file
+      const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+      const isImage = IMAGE_EXTENSIONS.includes(ext)
+
+      // Check if shape already exists for this file (both code-shape and image-shape)
       const existing = editor.getCurrentPageShapes().find(
-        (s) => s.type === 'code-shape' && (s as any).props.filePath === filePath
+        (s) =>
+          (s.type === 'code-shape' || s.type === 'image-shape') &&
+          (s as any).props.filePath === filePath
       )
       if (existing) {
         editor.select(existing.id)
         editor.zoomToSelection()
         return
       }
+
       // Create new shape at center of viewport
       const { x, y } = editor.getViewportPageBounds().center
-      editor.createShape({
-        type: 'code-shape',
-        x: x - 300,
-        y: y - 200,
-        props: { filePath, language, w: 600, h: 400 },
-      })
+      if (isImage) {
+        editor.createShape({
+          type: 'image-shape',
+          x: x - 250,
+          y: y - 200,
+          props: { filePath, w: 500, h: 400 },
+        })
+      } else {
+        editor.createShape({
+          type: 'code-shape',
+          x: x - 300,
+          y: y - 200,
+          props: { filePath, language, w: 600, h: 400 },
+        })
+      }
     }
 
     window.addEventListener('humanboard:open-file', handleOpenFile)

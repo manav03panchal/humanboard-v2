@@ -10,6 +10,7 @@ pub fn run() {
             commands::files::read_file,
             commands::files::write_file,
             commands::files::read_dir,
+            commands::files::read_file_base64,
             commands::vault::init_vault,
             commands::vault::save_canvas,
             commands::vault::load_canvas,
