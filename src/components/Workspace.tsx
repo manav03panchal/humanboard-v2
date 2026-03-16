@@ -3,17 +3,21 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { PanelLeft } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { Canvas } from './Canvas'
+import { WindowTitleBar } from './WindowTitleBar'
 import { useFileStore } from '../stores/fileStore'
 import { useVaultStore } from '../stores/vaultStore'
 import { useToastStore } from './Toast'
 import { useThemeStore } from '../lib/theme'
 import { getLanguageName } from '../lib/language'
+import { usePlatform } from '../hooks/usePlatform'
 
 export function Workspace() {
   const vaultPath = useVaultStore((s) => s.vaultPath)!
   const openFile = useFileStore((s) => s.openFile)
   const addToast = useToastStore((s) => s.addToast)
   const loadTheme = useThemeStore((s) => s.loadTheme)
+  const os = usePlatform()
+  const isMac = os === 'macos'
 
   // On vault change: load theme, clear file store
   useEffect(() => {
@@ -53,17 +57,21 @@ export function Workspace() {
 
   return (
     <div style={{ display: 'flex', width: '100%', height: '100vh' }}>
-      <div
-        onMouseDown={handleDrag}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 28,
-          zIndex: 9999,
-        }}
-      />
+      {isMac ? (
+        <div
+          onMouseDown={handleDrag}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 28,
+            zIndex: 9999,
+          }}
+        />
+      ) : (
+        <WindowTitleBar />
+      )}
       <Sidebar onFileClick={handleFileClick} />
       <SidebarOpenTab />
       <div style={{ flex: 1, height: '100%' }}>
