@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown } from 'lucide-react'
 import { getFileIcon } from '../lib/fileIcons'
 import { getLanguageName } from '../lib/language'
 import type { TreeNode } from '../stores/vaultStore'
+import type { ContextMenuState } from './SidebarContextMenu'
 
 interface TreeNodeData {
   name: string
@@ -66,9 +67,10 @@ interface SidebarTreeViewProps {
   entries: TreeNode[]
   searchQuery: string
   onFileClick: (path: string) => void
+  onContextMenu?: (state: ContextMenuState) => void
 }
 
-export function SidebarTreeView({ entries, searchQuery, onFileClick }: SidebarTreeViewProps) {
+export function SidebarTreeView({ entries, searchQuery, onFileClick, onContextMenu }: SidebarTreeViewProps) {
   const tree = useMemo(() => buildTree(entries), [entries])
 
   const filtered = useMemo(() => {
@@ -83,7 +85,7 @@ export function SidebarTreeView({ entries, searchQuery, onFileClick }: SidebarTr
     return (
       <div style={{ overflow: 'auto', flex: 1 }}>
         {filtered.map((f) => (
-          <TreeFileItem key={f.path} name={f.name} path={f.path} depth={0} onClick={onFileClick} />
+          <TreeFileItem key={f.path} name={f.name} path={f.path} depth={0} onClick={onFileClick} onContextMenu={onContextMenu} />
         ))}
       </div>
     )
@@ -92,7 +94,7 @@ export function SidebarTreeView({ entries, searchQuery, onFileClick }: SidebarTr
   return (
     <div style={{ overflow: 'auto', flex: 1 }}>
       {tree.map((node) => (
-        <TreeItem key={node.path} node={node} depth={0} onFileClick={onFileClick} />
+        <TreeItem key={node.path} node={node} depth={0} onFileClick={onFileClick} onContextMenu={onContextMenu} />
       ))}
     </div>
   )
@@ -102,15 +104,17 @@ function TreeItem({
   node,
   depth,
   onFileClick,
+  onContextMenu,
 }: {
   node: TreeNodeData
   depth: number
   onFileClick: (path: string) => void
+  onContextMenu?: (state: ContextMenuState) => void
 }) {
   const [expanded, setExpanded] = useState(depth < 1)
 
   if (!node.isDir) {
-    return <TreeFileItem name={node.name} path={node.path} depth={depth} onClick={onFileClick} />
+    return <TreeFileItem name={node.name} path={node.path} depth={depth} onClick={onFileClick} onContextMenu={onContextMenu} />
   }
 
   const Icon = getFileIcon(node.path, true, expanded)
@@ -120,6 +124,11 @@ function TreeItem({
     <div>
       <button
         onClick={() => setExpanded(!expanded)}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          onContextMenu?.({ x: e.clientX, y: e.clientY, path: node.path, isDir: true })
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -146,7 +155,7 @@ function TreeItem({
       </button>
       {expanded &&
         node.children.map((child) => (
-          <TreeItem key={child.path} node={child} depth={depth + 1} onFileClick={onFileClick} />
+          <TreeItem key={child.path} node={child} depth={depth + 1} onFileClick={onFileClick} onContextMenu={onContextMenu} />
         ))}
     </div>
   )
@@ -157,11 +166,13 @@ function TreeFileItem({
   path,
   depth,
   onClick,
+  onContextMenu,
 }: {
   name: string
   path: string
   depth: number
   onClick: (path: string) => void
+  onContextMenu?: (state: ContextMenuState) => void
 }) {
   const Icon = getFileIcon(path, false)
 
@@ -200,6 +211,11 @@ function TreeFileItem({
     <button
       onClick={() => onClick(path)}
       onMouseDown={handleMouseDown}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onContextMenu?.({ x: e.clientX, y: e.clientY, path, isDir: false })
+      }}
       style={{
         display: 'flex',
         alignItems: 'center',
