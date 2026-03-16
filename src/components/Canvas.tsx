@@ -1,11 +1,9 @@
 import { useCallback, useRef, useEffect } from 'react'
 import { Tldraw, type Editor } from 'tldraw'
 import 'tldraw/tldraw.css'
-import { CodeShapeUtil } from '../shapes/CodeShapeUtil'
+import { customShapeUtils } from '../shapes'
 import { saveCanvasState, loadCanvasState } from '../lib/canvasPersistence'
 import { useVaultStore } from '../stores/vaultStore'
-
-const customShapeUtils = [CodeShapeUtil]
 
 export function Canvas() {
   const editorRef = useRef<Editor | null>(null)
