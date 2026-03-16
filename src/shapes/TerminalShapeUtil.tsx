@@ -152,79 +152,52 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
     // Spawn PTY
     const shellPath = shape.props.shell || '/bin/zsh'
     const cwd = useVaultStore.getState().vaultPath || undefined
-    let exitChecker: number | undefined
     try {
       const pty = spawn(shellPath, [], {
         cols: term.cols,
         rows: term.rows,
         cwd: cwd || undefined,
-        name: 'xterm-256color',
       })
 
       ptyRef.current = pty
       addSession(shape.id, shape.id, shellPath)
 
-      // Watch for process exit by detecting end of output
-      let lastDataTime = Date.now()
-      exitChecker = setInterval(() => {
-        // If no data for 2 seconds and PTY process is gone, close
-        if (Date.now() - lastDataTime > 2000) {
-          try {
-            // Try writing empty string to check if PTY is alive
-            pty.write('')
-          } catch {
-            clearInterval(exitChecker)
-            closeShape()
-          }
-        }
-      }, 1000)
-
-      // PTY data -> xterm
-      pty.onData((data: any) => {
-        lastDataTime = Date.now()
-        try {
-          if (typeof data === 'string') {
-            term.write(data)
-          } else if (data instanceof Uint8Array) {
-            term.write(data)
-          } else if (Array.isArray(data)) {
-            term.write(new Uint8Array(data))
-          } else if (data && typeof data === 'object') {
-            // Could be array-like from Tauri IPC serialization
-            const arr = Object.values(data) as number[]
-            term.write(new Uint8Array(arr))
-          } else {
-            term.write(String(data))
-          }
-        } catch (e) {
-          console.error('xterm write error:', e, 'data:', typeof data, JSON.stringify(data).slice(0, 200))
-        }
-      })
-
+      // Close shape helper — must be defined before anything references it
       const closeShape = () => {
+        if (isCleaningUp.current) return
+        isCleaningUp.current = true
         removeSession(shapeIdRef.current)
-        if (!isCleaningUp.current) {
-          isCleaningUp.current = true
-          setTimeout(() => {
-            try {
-              editorRef.current.deleteShape(shapeIdRef.current)
-            } catch {}
-          }, 100)
-        }
+        setTimeout(() => {
+          try {
+            editorRef.current.deleteShape(shapeIdRef.current)
+          } catch {}
+        }, 100)
       }
+
+      // PTY data -> xterm (data arrives as Uint8Array from tauri-pty)
+      pty.onData((data: Uint8Array) => {
+        term.write(new Uint8Array(data))
+      })
 
       // xterm input -> PTY
       term.onData((data: string) => {
         try {
           pty.write(data)
         } catch {
-          // PTY is dead — close the shape
           closeShape()
         }
       })
 
-      // Handle PTY exit
-      pty.onExit(() => closeShape())
+      // Handle PTY exit — this is the primary close mechanism
+      pty.onExit(({ exitCode }: { exitCode: number; signal?: number }) => {
+        console.log(`PTY exited with code ${exitCode}`)
+        closeShape()
+      })
+
+      // Resize handler
+      term.onResize((e: { cols: number; rows: number }) => {
+        try { pty.resize(e.cols, e.rows) } catch {}
+      })
     } catch (err) {
       console.error('PTY spawn failed:', err)
       setError(`Failed to spawn terminal: ${err}`)
@@ -232,7 +205,6 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
 
     return () => {
       isCleaningUp.current = true
-      if (exitChecker) clearInterval(exitChecker)
       if (ptyRef.current) {
         try {
           ptyRef.current.kill()

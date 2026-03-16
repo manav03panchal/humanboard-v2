@@ -73,6 +73,21 @@ export const useLspStore = create<LspStore>((set, get) => ({
       return existing.serverId
     }
 
+    // Prevent duplicate init — create a placeholder connection immediately
+    const placeholder: LspConnection = {
+      serverId: -1,
+      language,
+      initialized: false,
+      capabilities: null,
+      unlisten: null,
+      refCount: 1,
+    }
+    set((state) => {
+      const connections = new Map(state.connections)
+      connections.set(language, placeholder)
+      return { connections }
+    })
+
     let serverId: number
     try {
       serverId = await invoke<number>('lsp_start', { language, vaultPath })

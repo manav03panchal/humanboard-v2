@@ -17,6 +17,12 @@ export function useKeyboardShortcuts() {
         return
       }
 
+      // Cmd+W — prevent closing window, do nothing (or close focused shape later)
+      if (meta && e.key === 'w') {
+        e.preventDefault()
+        return
+      }
+
       // Cmd+B — toggle sidebar
       if (meta && e.key === 'b') {
         e.preventDefault()
