@@ -2,13 +2,15 @@ import { useVaultStore } from '../stores/vaultStore'
 import { SidebarFileItem } from './SidebarFileItem'
 import { SidebarTreeView } from './SidebarTreeView'
 import { useMemo } from 'react'
+import type { ContextMenuState } from './SidebarContextMenu'
 
 interface SidebarFileListProps {
   searchQuery: string
   onFileClick: (path: string) => void
+  onContextMenu?: (state: ContextMenuState) => void
 }
 
-export function SidebarFileList({ searchQuery, onFileClick }: SidebarFileListProps) {
+export function SidebarFileList({ searchQuery, onFileClick, onContextMenu }: SidebarFileListProps) {
   const fileTree = useVaultStore((s) => s.fileTree)
   const sortMode = useVaultStore((s) => s.sidebarSort)
 
@@ -38,7 +40,7 @@ export function SidebarFileList({ searchQuery, onFileClick }: SidebarFileListPro
 
   // Alpha mode → proper folder tree
   if (sortMode === 'alpha') {
-    return <SidebarTreeView entries={fileTree} searchQuery={searchQuery} onFileClick={onFileClick} />
+    return <SidebarTreeView entries={fileTree} searchQuery={searchQuery} onFileClick={onFileClick} onContextMenu={onContextMenu} />
   }
 
   // Date mode → flat list grouped by date
@@ -50,7 +52,7 @@ export function SidebarFileList({ searchQuery, onFileClick }: SidebarFileListPro
             {date}
           </div>
           {items.map((f) => (
-            <SidebarFileItem key={f.path} {...f} onClick={onFileClick} />
+            <SidebarFileItem key={f.path} {...f} onClick={onFileClick} onContextMenu={onContextMenu} />
           ))}
         </div>
       ))}

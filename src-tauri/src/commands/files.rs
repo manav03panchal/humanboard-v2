@@ -107,6 +107,65 @@ pub fn read_dir(vault_root: String, dir_path: String) -> Result<Vec<FileEntry>, 
     read_dir_recursive(&root, &target)
 }
 
+/// Normalize a path by resolving `.` and `..` components without requiring the path to exist.
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut components = Vec::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::ParentDir => { components.pop(); }
+            std::path::Component::CurDir => {}
+            c => components.push(c),
+        }
+    }
+    components.iter().collect()
+}
+
+/// Validate that a joined path stays within the vault root (for paths that may not exist yet).
+fn validate_new_path(vault_root: &str, requested: &str) -> Result<PathBuf, String> {
+    let root = fs::canonicalize(vault_root).map_err(|e| format!("Invalid vault root: {e}"))?;
+    let full = normalize_path(&root.join(requested));
+    if !full.starts_with(&root) {
+        return Err("Path traversal denied".into());
+    }
+    Ok(full)
+}
+
+#[tauri::command]
+pub fn create_file(vault_root: String, file_path: String) -> Result<(), String> {
+    let full = validate_new_path(&vault_root, &file_path)?;
+    if let Some(parent) = full.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Cannot create parent dirs: {e}"))?;
+    }
+    fs::write(&full, "").map_err(|e| format!("Cannot create file: {e}"))
+}
+
+#[tauri::command]
+pub fn create_dir(vault_root: String, dir_path: String) -> Result<(), String> {
+    let full = validate_new_path(&vault_root, &dir_path)?;
+    fs::create_dir_all(&full).map_err(|e| format!("Cannot create directory: {e}"))
+}
+
+#[tauri::command]
+pub fn rename_entry(vault_root: String, old_path: String, new_path: String) -> Result<(), String> {
+    let old_full = validate_path(&vault_root, &old_path)?;
+    let new_full = validate_new_path(&vault_root, &new_path)?;
+    if let Some(parent) = new_full.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Cannot create parent dirs: {e}"))?;
+    }
+    fs::rename(&old_full, &new_full).map_err(|e| format!("Cannot rename: {e}"))
+}
+
+#[tauri::command]
+pub fn delete_entry(vault_root: String, entry_path: String) -> Result<(), String> {
+    let path = validate_path(&vault_root, &entry_path)?;
+    let metadata = fs::metadata(&path).map_err(|e| format!("Cannot access: {e}"))?;
+    if metadata.is_dir() {
+        fs::remove_dir_all(&path).map_err(|e| format!("Cannot delete directory: {e}"))
+    } else {
+        fs::remove_file(&path).map_err(|e| format!("Cannot delete file: {e}"))
+    }
+}
+
 fn read_dir_recursive(vault_root: &Path, dir: &Path) -> Result<Vec<FileEntry>, String> {
     let mut entries = Vec::new();
     let read = fs::read_dir(dir).map_err(|e| format!("Cannot read directory: {e}"))?;
@@ -142,4 +201,122 @@ fn read_dir_recursive(vault_root: &Path, dir: &Path) -> Result<Vec<FileEntry>, S
         }
     }
     Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs as stdfs;
+    use tempfile::TempDir;
+
+    fn setup() -> TempDir {
+        TempDir::new().unwrap()
+    }
+
+    #[test]
+    fn test_create_file() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        create_file(root.clone(), "hello.txt".into()).unwrap();
+        assert!(dir.path().join("hello.txt").exists());
+        assert_eq!(stdfs::read_to_string(dir.path().join("hello.txt")).unwrap(), "");
+    }
+
+    #[test]
+    fn test_create_file_nested() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        create_file(root.clone(), "sub/deep/file.md".into()).unwrap();
+        assert!(dir.path().join("sub/deep/file.md").exists());
+    }
+
+    #[test]
+    fn test_create_file_path_traversal() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        let result = create_file(root.clone(), "../../evil.txt".into());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Path traversal denied"));
+    }
+
+    #[test]
+    fn test_create_dir() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        create_dir(root.clone(), "new_folder".into()).unwrap();
+        assert!(dir.path().join("new_folder").is_dir());
+    }
+
+    #[test]
+    fn test_create_dir_nested() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        create_dir(root.clone(), "a/b/c".into()).unwrap();
+        assert!(dir.path().join("a/b/c").is_dir());
+    }
+
+    #[test]
+    fn test_create_dir_path_traversal() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        let result = create_dir(root.clone(), "../../evil_dir".into());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_rename_entry_file() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        stdfs::write(dir.path().join("old.txt"), "content").unwrap();
+        rename_entry(root.clone(), "old.txt".into(), "new.txt".into()).unwrap();
+        assert!(!dir.path().join("old.txt").exists());
+        assert!(dir.path().join("new.txt").exists());
+        assert_eq!(stdfs::read_to_string(dir.path().join("new.txt")).unwrap(), "content");
+    }
+
+    #[test]
+    fn test_rename_entry_dir() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        stdfs::create_dir(dir.path().join("old_dir")).unwrap();
+        rename_entry(root.clone(), "old_dir".into(), "new_dir".into()).unwrap();
+        assert!(!dir.path().join("old_dir").exists());
+        assert!(dir.path().join("new_dir").is_dir());
+    }
+
+    #[test]
+    fn test_rename_entry_path_traversal() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        stdfs::write(dir.path().join("file.txt"), "").unwrap();
+        let result = rename_entry(root.clone(), "file.txt".into(), "../../evil.txt".into());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_delete_entry_file() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        stdfs::write(dir.path().join("to_delete.txt"), "bye").unwrap();
+        delete_entry(root.clone(), "to_delete.txt".into()).unwrap();
+        assert!(!dir.path().join("to_delete.txt").exists());
+    }
+
+    #[test]
+    fn test_delete_entry_dir() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        stdfs::create_dir(dir.path().join("to_delete_dir")).unwrap();
+        stdfs::write(dir.path().join("to_delete_dir/child.txt"), "").unwrap();
+        delete_entry(root.clone(), "to_delete_dir".into()).unwrap();
+        assert!(!dir.path().join("to_delete_dir").exists());
+    }
+
+    #[test]
+    fn test_delete_entry_nonexistent() {
+        let dir = setup();
+        let root = dir.path().to_string_lossy().to_string();
+        let result = delete_entry(root.clone(), "nonexistent.txt".into());
+        assert!(result.is_err());
+    }
 }
