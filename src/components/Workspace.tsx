@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { PanelLeft } from 'lucide-react'
 import { Sidebar } from './Sidebar'
@@ -8,12 +8,20 @@ import { useVaultStore } from '../stores/vaultStore'
 import { useToastStore } from './Toast'
 import { useThemeStore } from '../lib/theme'
 import { getLanguageName } from '../lib/language'
+import { QuickOpen } from './QuickOpen'
 
 export function Workspace() {
   const vaultPath = useVaultStore((s) => s.vaultPath)!
   const openFile = useFileStore((s) => s.openFile)
   const addToast = useToastStore((s) => s.addToast)
   const loadTheme = useThemeStore((s) => s.loadTheme)
+  const [quickOpenOpen, setQuickOpenOpen] = useState(false)
+
+  useEffect(() => {
+    const handler = () => setQuickOpenOpen((o) => !o)
+    window.addEventListener('humanboard:toggle-quick-open', handler)
+    return () => window.removeEventListener('humanboard:toggle-quick-open', handler)
+  }, [])
 
   // On vault change: load theme, clear file store
   useEffect(() => {
@@ -69,6 +77,7 @@ export function Workspace() {
       <div style={{ flex: 1, height: '100%' }}>
         <Canvas key={vaultPath} />
       </div>
+      <QuickOpen open={quickOpenOpen} onClose={() => setQuickOpenOpen(false)} />
     </div>
   )
 }
