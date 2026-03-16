@@ -74,12 +74,16 @@ export function Canvas() {
   }, [])
 
   useEffect(() => {
+    const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
+
     const handleOpenFile = (e: Event) => {
       const editor = editorRef.current
       if (!editor) return
       const { filePath, language } = (e as CustomEvent).detail
       const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+      const isImage = IMAGE_EXTENSIONS.includes(ext)
       const isMarkdown = ext === 'md'
+
       // Check if shape already exists for this file
       const existing = editor.getCurrentPageShapes().find(
         (s) => ['code-shape', 'image-shape', 'markdown-shape'].includes(s.type) &&
@@ -90,9 +94,17 @@ export function Canvas() {
         editor.zoomToSelection()
         return
       }
+
       // Create new shape at center of viewport
       const { x, y } = editor.getViewportPageBounds().center
-      if (isMarkdown) {
+      if (isImage) {
+        editor.createShape({
+          type: 'image-shape',
+          x: x - 250,
+          y: y - 200,
+          props: { filePath, w: 500, h: 400 },
+        })
+      } else if (isMarkdown) {
         editor.createShape({
           type: 'markdown-shape',
           x: x - 300,
