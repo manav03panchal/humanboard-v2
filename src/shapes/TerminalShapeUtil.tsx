@@ -12,7 +12,6 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { spawn } from 'tauri-pty'
 import { useThemeStore } from '../lib/theme'
 import { usePtyStore } from '../stores/ptyStore'
-import { useVaultStore } from '../stores/vaultStore'
 import { useCallback, useRef, useEffect, useState } from 'react'
 import { Terminal as TerminalIcon, X } from 'lucide-react'
 
@@ -151,12 +150,10 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
 
     // Spawn PTY
     const shellPath = shape.props.shell || '/bin/zsh'
-    const cwd = useVaultStore.getState().vaultPath || undefined
     try {
       const pty = spawn(shellPath, [], {
         cols: term.cols,
         rows: term.rows,
-        cwd: cwd || undefined,
         name: 'xterm-256color',
       })
 
