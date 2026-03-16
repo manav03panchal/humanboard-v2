@@ -1,37 +1,27 @@
-import "./App.css";
-import { useEffect } from "react";
-import { useVaultStore } from "./stores/vaultStore";
-import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
-import { LandingScreen } from "./components/LandingScreen";
-import { ToastContainer } from "./components/Toast";
+import { useEffect } from 'react'
+import { useVaultStore } from './stores/vaultStore'
+import { LandingScreen } from './components/LandingScreen'
+import { Workspace } from './components/Workspace'
+import { ToastContainer } from './components/Toast'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import './App.css'
 
 function App() {
-  useKeyboardShortcuts();
-
-  const vaultPath = useVaultStore((s) => s.vaultPath);
-  const loadRecentVaults = useVaultStore((s) => s.loadRecentVaults);
+  const vaultPath = useVaultStore((s) => s.vaultPath)
+  const loadRecentVaults = useVaultStore((s) => s.loadRecentVaults)
 
   useEffect(() => {
-    loadRecentVaults();
-  }, [loadRecentVaults]);
+    loadRecentVaults()
+  }, [loadRecentVaults])
 
-  if (!vaultPath) {
-    return (
-      <>
-        <LandingScreen />
-        <ToastContainer />
-      </>
-    );
-  }
+  useKeyboardShortcuts()
 
   return (
     <>
-      <nav className="navbar">
-        <span className="navbar-title">Humanboard</span>
-      </nav>
+      {vaultPath ? <Workspace /> : <LandingScreen />}
       <ToastContainer />
     </>
-  );
+  )
 }
 
 export default App
