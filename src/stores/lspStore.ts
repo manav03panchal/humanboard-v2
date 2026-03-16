@@ -90,7 +90,20 @@ export const useLspStore = create<LspStore>((set, get) => ({
 
     let serverId: number
     try {
-      serverId = await invoke<number>('lsp_start', { language, vaultPath })
+      const result = await invoke<{ serverId: number; isNew: boolean }>('lsp_start', { language, vaultPath })
+      serverId = result.serverId
+      if (!result.isNew) {
+        // Server already existed — don't re-initialize, just update placeholder
+        set((state) => {
+          const connections = new Map(state.connections)
+          const existing = connections.get(language)
+          if (existing) {
+            connections.set(language, { ...existing, serverId, initialized: true })
+          }
+          return { connections }
+        })
+        return serverId
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       useToastStore.getState().addToast(

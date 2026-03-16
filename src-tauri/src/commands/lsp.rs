@@ -1,3 +1,4 @@
+use serde::Serialize;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -73,15 +74,22 @@ fn which_exists(binary: &str) -> bool {
         .unwrap_or(false)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LspStartResult {
+    pub server_id: u32,
+    pub is_new: bool,
+}
+
 #[tauri::command]
-pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result<u32, String> {
+pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result<LspStartResult, String> {
     let state = app.state::<Mutex<LspManagerState>>();
     let mut state = state.lock().map_err(|e| format!("Lock error: {e}"))?;
 
     // Check if server already running for this language+vault
     for (id, server) in &state.servers {
         if server.language == language && server.vault_path == vault_path {
-            return Ok(*id);
+            return Ok(LspStartResult { server_id: *id, is_new: false });
         }
     }
 
@@ -169,7 +177,7 @@ pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result
         },
     );
 
-    Ok(server_id)
+    Ok(LspStartResult { server_id, is_new: true })
 }
 
 #[tauri::command]
