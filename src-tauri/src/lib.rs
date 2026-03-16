@@ -7,6 +7,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_pty::init())
         .manage(commands::watcher::init_watcher_state())
+        .manage(commands::lsp::init_lsp_state())
         .invoke_handler(tauri::generate_handler![
             commands::files::read_file,
             commands::files::write_file,
@@ -17,6 +18,9 @@ pub fn run() {
             commands::vault::load_canvas,
             commands::watcher::watch_vault,
             commands::watcher::unwatch_vault,
+            commands::lsp::lsp_start,
+            commands::lsp::lsp_send,
+            commands::lsp::lsp_stop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
