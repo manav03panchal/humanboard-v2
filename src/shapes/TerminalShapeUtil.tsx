@@ -157,6 +157,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
         cols: term.cols,
         rows: term.rows,
         cwd: cwd || undefined,
+        name: 'xterm-256color',
       })
 
       ptyRef.current = pty
