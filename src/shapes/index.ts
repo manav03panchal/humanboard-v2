@@ -4,6 +4,7 @@ import { ImageShapeUtil } from './ImageShapeUtil'
 import { MarkdownShapeUtil } from './MarkdownShapeUtil'
 import { TerminalShapeUtil } from './TerminalShapeUtil'
 import { AudioShapeUtil } from './AudioShapeUtil'
+import { NoteShapeUtil } from './NoteShapeUtil'
 
 export const customShapeUtils = [
   CodeShapeUtil,
@@ -12,4 +13,5 @@ export const customShapeUtils = [
   MarkdownShapeUtil,
   TerminalShapeUtil,
   AudioShapeUtil,
+  NoteShapeUtil,
 ]
