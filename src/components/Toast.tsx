@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { create } from 'zustand'
 import { X } from 'lucide-react'
 
@@ -29,7 +30,7 @@ export const useToastStore = create<ToastStore>((set) => ({
   },
 }))
 
-export function ToastContainer() {
+export const ToastContainer = memo(function ToastContainer() {
   const toasts = useToastStore((s) => s.toasts)
   const removeToast = useToastStore((s) => s.removeToast)
 
@@ -79,4 +80,4 @@ export function ToastContainer() {
       ))}
     </div>
   )
-}
+})

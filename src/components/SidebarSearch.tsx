@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Search } from 'lucide-react'
 
 interface SidebarSearchProps {
@@ -5,7 +6,7 @@ interface SidebarSearchProps {
   onChange: (value: string) => void
 }
 
-export function SidebarSearch({ value, onChange }: SidebarSearchProps) {
+export const SidebarSearch = memo(function SidebarSearch({ value, onChange }: SidebarSearchProps) {
   return (
     <div
       style={{
@@ -35,4 +36,4 @@ export function SidebarSearch({ value, onChange }: SidebarSearchProps) {
       />
     </div>
   )
-}
+})

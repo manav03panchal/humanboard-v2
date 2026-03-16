@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { getFileIcon } from '../lib/fileIcons'
 
 interface SidebarFileItemProps {
@@ -8,7 +9,7 @@ interface SidebarFileItemProps {
   onClick: (path: string) => void
 }
 
-export function SidebarFileItem({ name, path, isDir, modifiedAt, onClick }: SidebarFileItemProps) {
+export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir, modifiedAt, onClick }: SidebarFileItemProps) {
   const Icon = getFileIcon(path, isDir)
   const dateStr = formatDate(modifiedAt)
 
@@ -39,7 +40,7 @@ export function SidebarFileItem({ name, path, isDir, modifiedAt, onClick }: Side
       <span style={{ fontSize: 11, color: '#555', flexShrink: 0 }}>{dateStr}</span>
     </button>
   )
-}
+})
 
 function formatDate(ts: number): string {
   if (!ts) return ''
