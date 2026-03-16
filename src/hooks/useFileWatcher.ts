@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { useFileStore } from '../stores/fileStore'
 import { useVaultStore } from '../stores/vaultStore'
 import { useThemeStore } from '../lib/theme'
+import { useLinkStore } from '../stores/linkStore'
 
 interface FileChangeEvent {
   path: string
@@ -29,6 +30,10 @@ export function useFileWatcher() {
 
       if (kind === 'modify' && vaultPath) {
         reloadFile(vaultPath, path)
+      }
+
+      if (kind === 'remove' && path.endsWith('.md')) {
+        useLinkStore.getState().removeFile(path)
       }
 
       if (debounceRef.current) clearTimeout(debounceRef.current)

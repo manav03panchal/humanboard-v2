@@ -1,5 +1,16 @@
 import { create } from 'zustand'
 import { invoke } from '@tauri-apps/api/core'
+import { useLinkStore } from './linkStore'
+import { useVaultStore } from './vaultStore'
+
+function triggerLinkScan(filePath: string, content: string) {
+  if (!filePath.endsWith('.md')) return
+  const allMd = useVaultStore
+    .getState()
+    .fileTree.filter((f) => !f.isDir && f.path.endsWith('.md'))
+    .map((f) => f.path)
+  useLinkStore.getState().scanFile(filePath, content, allMd)
+}
 
 interface FileEntry {
   content: string
@@ -31,6 +42,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
       files.set(filePath, { content, diskContent: content, isDirty: false })
       return { files }
     })
+    triggerLinkScan(filePath, content)
   },
 
   updateContent: (filePath, content) => {
@@ -64,6 +76,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
       })
       return { files }
     })
+    triggerLinkScan(filePath, file.content)
   },
 
   closeFile: (filePath) => {
