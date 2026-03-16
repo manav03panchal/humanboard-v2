@@ -35,7 +35,11 @@ export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon }: NodeTi
     (e: React.MouseEvent) => {
       e.stopPropagation()
       e.preventDefault()
-      if (file) navigator.clipboard.writeText(file.content)
+      if (file) {
+        navigator.clipboard.writeText(file.content).catch((err) => {
+          console.error('Failed to copy to clipboard:', err)
+        })
+      }
     },
     [file]
   )

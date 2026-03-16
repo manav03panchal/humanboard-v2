@@ -8,16 +8,20 @@ interface HumanboardSnapshot {
 }
 
 export async function saveCanvasState(editor: Editor, vaultPath: string): Promise<void> {
-  const { document, session } = getSnapshot(editor.store)
-  const snapshot: HumanboardSnapshot = {
-    humanboardVersion: 1,
-    document,
-    session,
+  try {
+    const { document, session } = getSnapshot(editor.store)
+    const snapshot: HumanboardSnapshot = {
+      humanboardVersion: 1,
+      document,
+      session,
+    }
+    await invoke('save_canvas', {
+      vaultPath,
+      snapshot: JSON.stringify(snapshot),
+    })
+  } catch (err) {
+    console.error('Failed to save canvas state:', err)
   }
-  await invoke('save_canvas', {
-    vaultPath,
-    snapshot: JSON.stringify(snapshot),
-  })
 }
 
 export async function loadCanvasState(
