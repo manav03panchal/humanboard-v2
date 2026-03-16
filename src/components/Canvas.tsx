@@ -198,6 +198,26 @@ export function Canvas() {
     return () => window.removeEventListener('keydown', handleNoteKeyDown)
   }, [])
 
+  // Cmd+G shortcut to create graph view
+  useEffect(() => {
+    const handleGraphKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'g') {
+        e.preventDefault()
+        const editor = editorRef.current
+        if (!editor) return
+        const { x, y } = editor.getViewportPageBounds().center
+        editor.createShape({
+          type: 'graph-shape',
+          x: x - 300,
+          y: y - 250,
+          props: { w: 600, h: 500 },
+        })
+      }
+    }
+    window.addEventListener('keydown', handleGraphKeyDown)
+    return () => window.removeEventListener('keydown', handleGraphKeyDown)
+  }, [])
+
   // Expose editor ref for sidebar drag-drop
   useEffect(() => {
     (window as any).__humanboard_editor = editorRef
