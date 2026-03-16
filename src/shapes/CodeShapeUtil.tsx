@@ -1,10 +1,18 @@
-import { BaseBoxShapeUtil, HTMLContainer, T, type RecordProps, type TLShape } from 'tldraw'
+import {
+  BaseBoxShapeUtil,
+  HTMLContainer,
+  T,
+  useIsEditing,
+  useEditor,
+  type RecordProps,
+  type TLShape,
+} from 'tldraw'
 import CodeMirror from '@uiw/react-codemirror'
-import { EditorView } from '@codemirror/view'
 import { useFileStore } from '../stores/fileStore'
 import { getLanguageExtension } from '../lib/language'
 import { NodeTitleBar } from '../components/NodeTitleBar'
-import { useCallback } from 'react'
+import { buildCodeMirrorTheme, useThemeStore } from '../lib/theme'
+import { useCallback, useRef, useEffect, useMemo } from 'react'
 
 declare module 'tldraw' {
   interface TLGlobalShapePropsMap {
@@ -19,22 +27,6 @@ declare module 'tldraw' {
 
 export type CodeShape = TLShape<'code-shape'>
 
-const oledTheme = EditorView.theme(
-  {
-    '&': {
-      fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
-      fontSize: '13px',
-      backgroundColor: '#000',
-    },
-    '.cm-content': { caretColor: '#fff' },
-    '.cm-gutters': { backgroundColor: '#000', border: 'none', color: '#555' },
-    '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.05)' },
-    '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.05)' },
-    '&.cm-focused': { outline: 'none' },
-  },
-  { dark: true }
-)
-
 export class CodeShapeUtil extends BaseBoxShapeUtil<CodeShape> {
   static override type = 'code-shape' as const
   static override props: RecordProps<CodeShape> = {
@@ -48,6 +40,18 @@ export class CodeShapeUtil extends BaseBoxShapeUtil<CodeShape> {
     return { w: 600, h: 400, filePath: '', language: 'typescript' }
   }
 
+  override canEdit() {
+    return true
+  }
+
+  override canResize() {
+    return true
+  }
+
+  canRotate() {
+    return false
+  }
+
   override component(shape: CodeShape) {
     return <CodeShapeComponent shape={shape} />
   }
@@ -58,11 +62,18 @@ export class CodeShapeUtil extends BaseBoxShapeUtil<CodeShape> {
 }
 
 function CodeShapeComponent({ shape }: { shape: CodeShape }) {
+  const isEditing = useIsEditing(shape.id)
+  const editor = useEditor()
   const file = useFileStore((s) => s.files.get(shape.props.filePath))
   const updateContent = useFileStore((s) => s.updateContent)
+  const themeState = useThemeStore()
 
   const langExt = getLanguageExtension(shape.props.filePath)
-  const extensions = [oledTheme, ...(langExt ? [langExt] : [])]
+  const cmTheme = useMemo(() => buildCodeMirrorTheme(themeState), [themeState.zedTheme])
+  const extensions = useMemo(
+    () => [...cmTheme, ...(langExt ? [langExt] : [])],
+    [cmTheme, langExt]
+  )
 
   const handleChange = useCallback(
     (value: string) => {
@@ -71,11 +82,35 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
     [shape.props.filePath, updateContent]
   )
 
+  // Single click on code area → enter edit mode
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.stopPropagation()
+      if (!isEditing) {
+        editor.setEditingShape(shape.id)
+      }
+    },
+    [editor, shape.id, isEditing]
+  )
+
+  // Capture wheel at DOM level to prevent tldraw zoom
+  const editorDivRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = editorDivRef.current
+    if (!el) return
+    const stop = (e: WheelEvent) => e.stopPropagation()
+    el.addEventListener('wheel', stop, { passive: false })
+    return () => el.removeEventListener('wheel', stop)
+  }, [])
+
+  const editorBg = themeState.getEditorBackground()
+  const borderColor = themeState.getBorderColor()
+
   if (!file) {
     return (
       <HTMLContainer
         style={{
-          backgroundColor: '#000',
+          backgroundColor: editorBg,
           color: '#888',
           display: 'flex',
           alignItems: 'center',
@@ -92,8 +127,8 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: '#000',
-        border: '1px solid #1a1a1a',
+        backgroundColor: editorBg,
+        border: `1px solid ${borderColor}`,
         borderRadius: 8,
         overflow: 'hidden',
       }}
@@ -104,15 +139,30 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
         shapeId={shape.id}
       />
       <div
-        style={{ flex: 1, overflow: 'auto' }}
-        onPointerDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
+        ref={editorDivRef}
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          pointerEvents: 'all',
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={(e) => { if (isEditing) e.stopPropagation() }}
+        onPointerUp={(e) => { if (isEditing) e.stopPropagation() }}
+        onKeyDown={(e) => {
+          if (!isEditing) return
+          const meta = e.metaKey || e.ctrlKey
+          if (meta && e.key === 's') return
+          if (e.key === 'Escape') return
+          e.stopPropagation()
+        }}
+        onKeyUp={(e) => { if (isEditing) e.stopPropagation() }}
       >
         <CodeMirror
           value={file.content}
           onChange={handleChange}
           extensions={extensions}
           theme="none"
+          editable={isEditing}
           basicSetup={{
             lineNumbers: true,
             foldGutter: true,
@@ -120,7 +170,7 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
             bracketMatching: true,
             autocompletion: true,
           }}
-          style={{ height: '100%' }}
+          style={{ height: '100%', cursor: 'text' }}
         />
       </div>
     </HTMLContainer>

@@ -7,6 +7,7 @@ const SKIP_DIRS: &[&str] = &["node_modules", ".git", "target", "dist", ".humanbo
 const MAX_FILE_SIZE: u64 = 5 * 1024 * 1024; // 5MB
 
 #[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct FileEntry {
     pub name: String,
     pub path: String,

@@ -22,8 +22,9 @@ export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon }: NodeTi
   const displayPath = label ?? getRelativePath(filePath)
 
   const handleClose = useCallback(
-    (e: React.PointerEvent) => {
+    (e: React.MouseEvent) => {
       e.stopPropagation()
+      e.preventDefault()
       editor.deleteShape(shapeId as any)
       closeFile(filePath)
     },
@@ -31,8 +32,9 @@ export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon }: NodeTi
   )
 
   const handleCopy = useCallback(
-    (e: React.PointerEvent) => {
+    (e: React.MouseEvent) => {
       e.stopPropagation()
+      e.preventDefault()
       if (file) navigator.clipboard.writeText(file.content)
     },
     [file]
@@ -76,20 +78,28 @@ export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon }: NodeTi
           }}
         />
       )}
-      <button
-        onPointerDown={handleCopy}
-        style={iconButtonStyle}
-        title="Copy content"
+      <div
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+        onPointerMove={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        style={{ display: 'flex', gap: 2, pointerEvents: 'all' }}
       >
-        <Copy size={12} strokeWidth={1.5} />
-      </button>
-      <button
-        onPointerDown={handleClose}
-        style={iconButtonStyle}
-        title="Close"
-      >
-        <X size={12} strokeWidth={1.5} />
-      </button>
+        <button
+          onPointerDown={(e) => { e.stopPropagation(); handleCopy(e as any) }}
+          style={iconButtonStyle}
+          title="Copy content"
+        >
+          <Copy size={12} strokeWidth={1.5} />
+        </button>
+        <button
+          onPointerDown={(e) => { e.stopPropagation(); handleClose(e as any) }}
+          style={iconButtonStyle}
+          title="Close"
+        >
+          <X size={12} strokeWidth={1.5} />
+        </button>
+      </div>
     </div>
   )
 }

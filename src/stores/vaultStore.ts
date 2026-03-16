@@ -29,7 +29,7 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
   vaultPath: null,
   recentVaults: [],
   sidebarOpen: true,
-  sidebarSort: 'date',
+  sidebarSort: 'alpha',
   fileTree: [],
 
   setVaultPath: (path) => {

@@ -11,9 +11,9 @@ body::-webkit-scrollbar {
 }
 
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
+  font-family: "JetBrains Mono NF", "JetBrains Mono", Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
   font-weight: 400;
   color: #ffffff;
   background-color: #000000;
@@ -24,11 +24,57 @@ body::-webkit-scrollbar {
   -webkit-text-size-adjust: 100%;
 }
 
-/* tldraw overrides for OLED theme */
+/* tldraw overrides — kill ALL blue, OLED black */
 .tl-theme__dark {
-  --color-background: #000000;
+  --color-background: #000000 !important;
+  --tl-color-background: #000000 !important;
+  --tl-color-selection-stroke: rgba(255, 255, 255, 0.25) !important;
+  --tl-color-selection-fill: rgba(255, 255, 255, 0.03) !important;
+  --tl-color-selected: rgba(255, 255, 255, 0.4) !important;
+  --tl-color-primary: rgba(255, 255, 255, 0.4) !important;
 }
 
 .tl-background {
   background-color: #000000 !important;
+}
+
+/* Hide tldraw watermark */
+.tl-watermark_SEE-LICENSE {
+  display: none !important;
+}
+
+/* Hide rotate hint */
+.tl-selection__fg__rotate-hint {
+  display: none !important;
+}
+
+/* Subtle selection outline */
+.tl-selection__fg__outline {
+  stroke: rgba(255, 255, 255, 0.2) !important;
+  stroke-width: 1 !important;
+}
+
+/* Resize handles — subtle white, not blue */
+.tl-selection__fg__corner {
+  fill: rgba(255, 255, 255, 0.6) !important;
+  stroke: rgba(255, 255, 255, 0.3) !important;
+}
+
+.tl-selection__bg {
+  fill: transparent !important;
+}
+
+/* Scrollbar inside code nodes */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
 }

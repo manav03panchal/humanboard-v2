@@ -15,6 +15,16 @@ export function Canvas() {
   const handleMount = useCallback(
     (editor: Editor) => {
       editorRef.current = editor
+
+      // Force override tldraw selection colors — kill the blue
+      const container = document.querySelector('.tl-container') as HTMLElement
+      if (container) {
+        container.style.setProperty('--tl-color-selection-stroke', 'rgba(255,255,255,0.2)')
+        container.style.setProperty('--tl-color-selection-fill', 'rgba(255,255,255,0.03)')
+        container.style.setProperty('--tl-color-selected', 'rgba(255,255,255,0.3)')
+        container.style.setProperty('--tl-color-primary', 'rgba(255,255,255,0.3)')
+      }
+
       if (vaultPath) {
         loadCanvasState(editor, vaultPath)
       }

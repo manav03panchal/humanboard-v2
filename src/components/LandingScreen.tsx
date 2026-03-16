@@ -1,5 +1,6 @@
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { FolderOpen, Folder } from 'lucide-react'
 import { useVaultStore } from '../stores/vaultStore'
 import { useToastStore } from './Toast'
@@ -29,6 +30,10 @@ export function LandingScreen() {
     }
   }
 
+  const handleDrag = (e: React.MouseEvent) => {
+    if (e.buttons === 1) getCurrentWindow().startDragging()
+  }
+
   return (
     <div
       style={{
@@ -43,6 +48,17 @@ export function LandingScreen() {
         gap: 32,
       }}
     >
+      <div
+        onMouseDown={handleDrag}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 28,
+          zIndex: 9999,
+        }}
+      />
       <h1 style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em' }}>
         Humanboard
       </h1>
