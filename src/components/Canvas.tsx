@@ -4,8 +4,10 @@ import 'tldraw/tldraw.css'
 import { customShapeUtils } from '../shapes'
 import { saveCanvasState, loadCanvasState } from '../lib/canvasPersistence'
 import { useVaultStore } from '../stores/vaultStore'
+import { useFileWatcher } from '../hooks/useFileWatcher'
 
 export function Canvas() {
+  useFileWatcher()
   const editorRef = useRef<Editor | null>(null)
   const vaultPath = useVaultStore((s) => s.vaultPath)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
