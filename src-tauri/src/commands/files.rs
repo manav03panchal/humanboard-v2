@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -106,40 +105,6 @@ pub fn read_dir(vault_root: String, dir_path: String) -> Result<Vec<FileEntry>, 
         validate_path(&vault_root, &dir_path)?
     };
     read_dir_recursive(&root, &target)
-}
-
-#[tauri::command]
-pub fn read_file_base64(vault_root: String, file_path: String) -> Result<String, String> {
-    let path = validate_path(&vault_root, &file_path)?;
-    let metadata = fs::metadata(&path).map_err(|e| format!("Cannot read {file_path}: {e}"))?;
-    if metadata.len() > 10 * 1024 * 1024 {
-        return Err("File too large (max 10MB for images)".into());
-    }
-    let content = fs::read(&path).map_err(|e| format!("Cannot read {file_path}: {e}"))?;
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    let mime = match ext.as_str() {
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif" => "image/gif",
-        "svg" => "image/svg+xml",
-        "webp" => "image/webp",
-        "pdf" => "application/pdf",
-        "mp3" => "audio/mpeg",
-        "wav" => "audio/wav",
-        "ogg" => "audio/ogg",
-        "flac" => "audio/flac",
-        "aac" => "audio/aac",
-        "m4a" => "audio/mp4",
-        "mp4" => "video/mp4",
-        "webm" => "video/webm",
-        _ => "application/octet-stream",
-    };
-    let b64 = STANDARD.encode(&content);
-    Ok(format!("data:{};base64,{}", mime, b64))
 }
 
 fn read_dir_recursive(vault_root: &Path, dir: &Path) -> Result<Vec<FileEntry>, String> {

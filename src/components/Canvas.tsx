@@ -136,7 +136,7 @@ export function Canvas() {
                 })
               }
             }
-            // Image shapes load their own content via read_file_base64, no rehydration needed
+            // Image shapes load via convertFileSrc, no rehydration needed
             // PDF shapes load their own content, no rehydration needed
           }
         })
@@ -240,7 +240,7 @@ export function Canvas() {
       window.removeEventListener('humanboard:open-file', handleOpenFile)
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     }
-  }, [])
+  }, [vaultPath])
 
   // Tauri native drag-and-drop
   useEffect(() => {
