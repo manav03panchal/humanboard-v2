@@ -64,6 +64,10 @@ export class CodeShapeUtil extends BaseBoxShapeUtil<CodeShape> {
     return false
   }
 
+  override canScroll() {
+    return true
+  }
+
   override component(shape: CodeShape) {
     return <CodeShapeComponent shape={shape} />
   }

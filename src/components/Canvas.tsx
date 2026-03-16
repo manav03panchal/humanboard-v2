@@ -228,7 +228,7 @@ export function Canvas() {
     const handleOpenFile = async (e: Event) => {
       const editor = editorRef.current
       if (!editor) return
-      const { filePath, language, dropX, dropY } = (e as CustomEvent).detail
+      const { filePath, language, dropX, dropY, animate } = (e as CustomEvent).detail
 
       // Check if shape already exists
       const existing = editor.getCurrentPageShapes().find(
@@ -236,7 +236,13 @@ export function Canvas() {
       )
       if (existing) {
         editor.select(existing.id)
-        editor.zoomToSelection()
+        const bounds = editor.getShapePageBounds(existing)
+        if (bounds) {
+          editor.zoomToBounds(bounds, {
+            animation: { duration: animate ? 500 : 250 },
+            inset: 100,
+          })
+        }
         return
       }
 

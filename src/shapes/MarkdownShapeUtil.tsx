@@ -9,6 +9,17 @@ import {
 } from 'tldraw'
 import CodeMirror from '@uiw/react-codemirror'
 import ReactMarkdown from 'react-markdown'
+import rehypeRaw from 'rehype-raw'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import rehypeHighlight from 'rehype-highlight'
+import 'katex/dist/katex.min.css'
+import 'highlight.js/styles/github-dark.min.css'
+
+const remarkPlugins = [remarkMath]
+const rehypePlugins = [rehypeRaw, rehypeKatex, rehypeHighlight]
+import { convertFileSrc } from '@tauri-apps/api/core'
+import { useVaultStore } from '../stores/vaultStore'
 import { useFileStore } from '../stores/fileStore'
 import { getLanguageExtension } from '../lib/language'
 import { NodeTitleBar } from '../components/NodeTitleBar'
@@ -52,6 +63,10 @@ export class MarkdownShapeUtil extends BaseBoxShapeUtil<MarkdownShape> {
     return false
   }
 
+  override canScroll() {
+    return true
+  }
+
   override component(shape: MarkdownShape) {
     return <MarkdownShapeComponent shape={shape} />
   }
@@ -67,6 +82,7 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
   const editor = useEditor()
   const file = useFileStore((s) => s.files.get(shape.props.filePath))
   const updateContent = useFileStore((s) => s.updateContent)
+  const vaultPath = useVaultStore((s) => s.vaultPath)
   const zedTheme = useThemeStore((s) => s.zedTheme)
   const getEditorBackground = useThemeStore((s) => s.getEditorBackground)
   const getEditorForeground = useThemeStore((s) => s.getEditorForeground)
@@ -92,6 +108,70 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
     [cmTheme, langExt]
   )
 
+  // Split content into text chunks and image references
+  const contentParts = useMemo(() => {
+    if (!file?.content) return [{ type: 'text' as const, content: '' }]
+    const parts: { type: 'text' | 'image'; content: string }[] = []
+    const regex = /!\[\[([^\]]+)\]\]/g
+    let lastIndex = 0
+    let match
+    while ((match = regex.exec(file.content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ type: 'text', content: file.content.slice(lastIndex, match.index) })
+      }
+      parts.push({ type: 'image', content: match[1] })
+      lastIndex = match.index + match[0].length
+    }
+    if (lastIndex < file.content.length) {
+      parts.push({ type: 'text', content: file.content.slice(lastIndex) })
+    }
+    if (parts.length === 0) parts.push({ type: 'text', content: file.content })
+    return parts
+  }, [file?.content])
+
+  // Resolve image path to asset URL
+  const resolveImagePath = useCallback((filename: string) => {
+    if (!vaultPath) return ''
+    const dir = shape.props.filePath.includes('/')
+      ? shape.props.filePath.substring(0, shape.props.filePath.lastIndexOf('/'))
+      : ''
+    const imagePath = dir ? `${dir}/${filename}` : filename
+    return convertFileSrc(`${vaultPath}/${imagePath}`)
+  }, [vaultPath, shape.props.filePath])
+
+  // Custom components for ReactMarkdown — resolve relative image paths
+  const mdComponents = useMemo(() => ({
+    img: ({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => {
+      if (!src) return null
+      // Already resolved URLs (from our preprocessor or absolute URLs) — use as-is
+      if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('asset:')) {
+        return <img src={src} alt={alt ?? ''} style={{ maxWidth: '100%', borderRadius: 4, margin: '8px 0', display: 'block' }} {...props} />
+      }
+      // Relative path — resolve via convertFileSrc
+      if (!vaultPath) return null
+      const dir = shape.props.filePath.includes('/')
+        ? shape.props.filePath.substring(0, shape.props.filePath.lastIndexOf('/'))
+        : ''
+      const imagePath = dir ? `${dir}/${src}` : src
+      const fullPath = convertFileSrc(`${vaultPath}/${imagePath}`)
+      return (
+        <img
+          src={fullPath}
+          alt={alt ?? ''}
+          style={{ maxWidth: '100%', borderRadius: 4, margin: '8px 0', display: 'block' }}
+          onError={(e) => {
+            const target = e.currentTarget
+            if (!target.dataset.retried) {
+              target.dataset.retried = 'true'
+              target.src = convertFileSrc(`${vaultPath}/${src}`)
+            }
+          }}
+          {...props}
+        />
+      )
+    },
+  }), [vaultPath, shape.props.filePath])
+
   const handleChange = useCallback(
     (value: string) => {
       updateContent(shape.props.filePath, value)
@@ -99,15 +179,6 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
     [shape.props.filePath, updateContent]
   )
 
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      e.stopPropagation()
-      if (!isEditing) {
-        editor.setEditingShape(shape.id)
-      }
-    },
-    [editor, shape.id, isEditing]
-  )
 
   const handleToggleMode = useCallback(
     (e: React.MouseEvent) => {
@@ -123,8 +194,8 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
     const el = editorDivRef.current
     if (!el) return
     const stop = (e: WheelEvent) => e.stopPropagation()
-    el.addEventListener('wheel', stop, { passive: false })
-    return () => el.removeEventListener('wheel', stop)
+    el.addEventListener('wheel', stop, true)
+    return () => el.removeEventListener('wheel', stop, true)
   }, [])
 
   const editorBg = getEditorBackground()
@@ -190,13 +261,20 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
           overflow: 'auto',
           pointerEvents: 'all',
         }}
-        onPointerDown={viewMode === 'raw' ? handlePointerDown : undefined}
-        onPointerMove={(e) => { if (isEditing && viewMode === 'raw') e.stopPropagation() }}
-        onPointerUp={(e) => { if (isEditing && viewMode === 'raw') e.stopPropagation() }}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          if (viewMode === 'raw' && !isEditing) {
+            editor.setEditingShape(shape.id)
+          }
+        }}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
+        onPointerMove={(e) => { if (isEditing || viewMode === 'rendered') e.stopPropagation() }}
+        onPointerUp={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (!isEditing || viewMode !== 'raw') return
           const meta = e.metaKey || e.ctrlKey
-          if (meta && e.key === 's') return
+          if (meta && (e.key === 's' || e.key === 'c')) return
           if (e.key === 'Escape') return
           e.stopPropagation()
         }}
@@ -210,10 +288,37 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
               fontSize: 14,
               lineHeight: 1.7,
+              userSelect: 'text',
+              cursor: 'text',
             }}
             className="markdown-body"
           >
-            <ReactMarkdown>{file.content}</ReactMarkdown>
+            {contentParts.map((part, i) =>
+              part.type === 'image' ? (
+                <img
+                  key={i}
+                  src={resolveImagePath(part.content)}
+                  alt={part.content}
+                  style={{ maxWidth: '100%', borderRadius: 4, margin: '8px 0', display: 'block' }}
+                  onError={(e) => {
+                    const target = e.currentTarget
+                    if (!target.dataset.retried && vaultPath) {
+                      target.dataset.retried = 'true'
+                      target.src = convertFileSrc(`${vaultPath}/${part.content}`)
+                    }
+                  }}
+                />
+              ) : (
+                <ReactMarkdown
+                  key={i}
+                  components={mdComponents}
+                  remarkPlugins={remarkPlugins}
+                  rehypePlugins={rehypePlugins}
+                >
+                  {part.content}
+                </ReactMarkdown>
+              )
+            )}
           </div>
         ) : (
           <CodeMirror

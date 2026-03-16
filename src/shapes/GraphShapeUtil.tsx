@@ -7,15 +7,18 @@ import {
 } from 'tldraw'
 import { NodeTitleBar } from '../components/NodeTitleBar'
 import { useLinkStore } from '../stores/linkStore'
+import { useVaultStore } from '../stores/vaultStore'
 import { useThemeStore } from '../lib/theme'
 import { Network } from 'lucide-react'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import {
   forceSimulation,
   forceLink,
   forceManyBody,
   forceCenter,
   forceCollide,
+  forceX,
+  forceY,
   type SimulationNodeDatum,
   type SimulationLinkDatum,
 } from 'd3-force'
@@ -40,7 +43,7 @@ export class GraphShapeUtil extends BaseBoxShapeUtil<GraphShape> {
   }
 
   override canEdit() {
-    return true
+    return false
   }
 
   override canResize() {
@@ -73,7 +76,9 @@ interface GraphLink extends SimulationLinkDatum<GraphNode> {
 const stopEvent = (e: React.SyntheticEvent) => e.stopPropagation()
 
 function GraphShapeComponent({ shape }: { shape: GraphShape }) {
-  const graph = useLinkStore((s) => s.getGraph())
+  const graph = useLinkStore((s) => s.graphData)
+  const scanAllFiles = useLinkStore((s) => s.scanAllFiles)
+  const vaultPath = useVaultStore((s) => s.vaultPath)
   const getAccentColor = useThemeStore((s) => s.getAccentColor)
   const getSurfaceBackground = useThemeStore((s) => s.getSurfaceBackground)
   const getBorderColor = useThemeStore((s) => s.getBorderColor)
@@ -81,7 +86,22 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
   const getTextMuted = useThemeStore((s) => s.getTextMuted)
 
   const { w, h } = shape.props
-  const svgHeight = h - 32 // account for title bar
+  const svgHeight = h - 32
+
+  // Scan all .md files when vault is open or changes
+  useEffect(() => {
+    if (vaultPath) {
+      scanAllFiles(vaultPath)
+    }
+  }, [vaultPath, scanAllFiles])
+
+  // Filter to only .md nodes
+  const filteredGraph = useMemo(() => {
+    const mdNodes = graph.nodes.filter((n) => n.endsWith('.md'))
+    const mdSet = new Set(mdNodes)
+    const mdEdges = graph.edges.filter(([s, t]) => mdSet.has(s) && mdSet.has(t))
+    return { nodes: mdNodes, edges: mdEdges }
+  }, [graph])
 
   const [nodePositions, setNodePositions] = useState<
     Map<string, { x: number; y: number }>
@@ -98,18 +118,25 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
       simulationRef.current = null
     }
 
-    if (graph.nodes.length === 0) {
+    if (filteredGraph.nodes.length === 0) {
       setNodePositions(new Map())
       setLinkPositions([])
       return
     }
 
-    const nodes: GraphNode[] = graph.nodes.map((id) => ({
+    const cx = w / 2
+    const cy = svgHeight / 2
+    const padding = 40
+
+    const nodes: GraphNode[] = filteredGraph.nodes.map((id) => ({
       id,
       label: id.split('/').pop()?.replace('.md', '') ?? id,
+      // Start near center
+      x: cx + (Math.random() - 0.5) * 100,
+      y: cy + (Math.random() - 0.5) * 100,
     }))
 
-    const links: GraphLink[] = graph.edges.map(([source, target]) => ({
+    const links: GraphLink[] = filteredGraph.edges.map(([source, target]) => ({
       source,
       target,
     }))
@@ -119,18 +146,26 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
         'link',
         forceLink<GraphNode, GraphLink>(links)
           .id((d) => d.id)
-          .distance(80)
+          .distance(100)
+          .strength(0.3)
       )
-      .force('charge', forceManyBody().strength(-200))
-      .force('center', forceCenter(w / 2, svgHeight / 2))
-      .force('collide', forceCollide(30))
+      .force('charge', forceManyBody().strength(-120))
+      .force('center', forceCenter(cx, cy).strength(0.1))
+      .force('collide', forceCollide(35))
+      // Keep nodes within bounds
+      .force('x', forceX(cx).strength(0.05))
+      .force('y', forceY(cy).strength(0.05))
+      .alphaDecay(0.02)
 
     simulationRef.current = simulation
 
     simulation.on('tick', () => {
       const positions = new Map<string, { x: number; y: number }>()
       for (const node of nodes) {
-        positions.set(node.id, { x: node.x ?? 0, y: node.y ?? 0 })
+        // Clamp positions within bounds
+        node.x = Math.max(padding, Math.min(w - padding, node.x ?? cx))
+        node.y = Math.max(padding, Math.min(svgHeight - padding, node.y ?? cy))
+        positions.set(node.id, { x: node.x, y: node.y })
       }
       setNodePositions(new Map(positions))
 
@@ -148,7 +183,7 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
     return () => {
       simulation.stop()
     }
-  }, [graph.nodes.length, graph.edges.length, w, svgHeight])
+  }, [filteredGraph.nodes.length, filteredGraph.edges.length, w, svgHeight])
 
   const handleNodeClick = useCallback(
     (e: React.MouseEvent, filePath: string) => {
@@ -156,7 +191,7 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
       e.preventDefault()
       window.dispatchEvent(
         new CustomEvent('humanboard:open-file', {
-          detail: { filePath, language: 'markdown' },
+          detail: { filePath, language: 'markdown', animate: true },
         })
       )
     },
@@ -168,6 +203,16 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
   const borderColor = getBorderColor()
   const fg = getEditorForeground()
   const textMuted = getTextMuted()
+
+  // Stop wheel from zooming canvas
+  const containerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const stop = (e: WheelEvent) => e.stopPropagation()
+    el.addEventListener('wheel', stop, true)
+    return () => el.removeEventListener('wheel', stop, true)
+  }, [])
 
   return (
     <HTMLContainer
@@ -185,16 +230,17 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
         filePath=""
         isDirty={false}
         shapeId={shape.id as string}
-        label="Graph View"
+        label={`Graph View — ${filteredGraph.nodes.length} files, ${filteredGraph.edges.length} links`}
         icon={Network}
       />
       <div
+        ref={containerRef}
         style={{ flex: 1, overflow: 'hidden' }}
         onPointerDown={stopEvent}
         onPointerMove={stopEvent}
         onPointerUp={stopEvent}
       >
-        {graph.nodes.length === 0 ? (
+        {filteredGraph.nodes.length === 0 ? (
           <div
             style={{
               display: 'flex',
@@ -203,11 +249,13 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
               height: '100%',
               color: textMuted,
               fontSize: 13,
-              fontFamily:
-                '"Iosevka Nerd Font Mono", "Iosevka", Menlo, Monaco, monospace',
+              fontFamily: '"Iosevka Nerd Font Mono", "Iosevka", Menlo, Monaco, monospace',
+              flexDirection: 'column',
+              gap: 8,
             }}
           >
-            No wikilink connections found
+            <Network size={24} strokeWidth={1} color={textMuted} />
+            No [[wikilink]] connections found in .md files
           </div>
         ) : (
           <svg
@@ -216,6 +264,7 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
             viewBox={`0 0 ${w} ${svgHeight}`}
             style={{ display: 'block' }}
           >
+            {/* Edges */}
             {linkPositions.map((link, i) => (
               <line
                 key={i}
@@ -223,16 +272,21 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
                 y1={link.source.y}
                 x2={link.target.x}
                 y2={link.target.y}
-                stroke="#333"
+                stroke={borderColor}
                 strokeWidth={1}
-                strokeOpacity={0.6}
+                strokeOpacity={0.5}
               />
             ))}
-            {graph.nodes.map((nodeId) => {
+            {/* Nodes */}
+            {filteredGraph.nodes.map((nodeId) => {
               const pos = nodePositions.get(nodeId)
               if (!pos) return null
-              const label =
-                nodeId.split('/').pop()?.replace('.md', '') ?? nodeId
+              const label = nodeId.split('/').pop()?.replace('.md', '') ?? nodeId
+              // Scale node size by number of connections
+              const connections = filteredGraph.edges.filter(
+                ([s, t]) => s === nodeId || t === nodeId
+              ).length
+              const radius = Math.max(4, Math.min(12, 4 + connections * 2))
               return (
                 <g
                   key={nodeId}
@@ -242,17 +296,20 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
                   <circle
                     cx={pos.x}
                     cy={pos.y}
-                    r={6}
+                    r={radius}
                     fill={accentColor}
-                    stroke={borderColor}
+                    fillOpacity={0.8}
+                    stroke={accentColor}
                     strokeWidth={1}
+                    strokeOpacity={0.4}
                   />
                   <text
-                    x={pos.x + 10}
+                    x={pos.x + radius + 6}
                     y={pos.y + 4}
                     fill={fg}
                     fontSize={11}
                     fontFamily='"Iosevka Nerd Font Mono", "Iosevka", Menlo, Monaco, monospace'
+                    fillOpacity={0.8}
                   >
                     {label}
                   </text>

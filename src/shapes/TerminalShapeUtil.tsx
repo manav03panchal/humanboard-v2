@@ -52,6 +52,10 @@ export class TerminalShapeUtil extends BaseBoxShapeUtil<TerminalShape> {
     return false
   }
 
+  override canScroll() {
+    return true
+  }
+
   override component(shape: TerminalShape) {
     return <TerminalShapeComponent shape={shape} />
   }
@@ -232,6 +236,15 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
     return () => resizeObserver.disconnect()
   }, [])
 
+  // Capture wheel at DOM level to prevent tldraw zoom
+  useEffect(() => {
+    const el = termContainerRef.current
+    if (!el) return
+    const stop = (e: WheelEvent) => e.stopPropagation()
+    el.addEventListener('wheel', stop, true)
+    return () => el.removeEventListener('wheel', stop, true)
+  }, [])
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation()
@@ -359,7 +372,6 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
           e.stopPropagation()
         }}
         onKeyUp={(e) => { if (focused) e.stopPropagation() }}
-        onWheel={(e) => e.stopPropagation()}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />

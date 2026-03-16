@@ -9,6 +9,7 @@ import { useVaultStore } from '../stores/vaultStore'
 import { useToastStore } from './Toast'
 import { useThemeStore } from '../lib/theme'
 import { getLanguageName } from '../lib/language'
+import { useLinkStore } from '../stores/linkStore'
 import { usePlatform } from '../hooks/usePlatform'
 import { QuickOpen } from './QuickOpen'
 
@@ -27,14 +28,14 @@ export function Workspace() {
     return () => window.removeEventListener('humanboard:toggle-quick-open', handler)
   }, [])
 
-  // On vault change: load theme, clear file store
+  // On vault change: load theme, clear file store and link store
   useEffect(() => {
     loadTheme(vaultPath)
-    // Clear all open files from previous vault
     const { files, closeFile } = useFileStore.getState()
     for (const filePath of files.keys()) {
       closeFile(filePath)
     }
+    useLinkStore.getState().clear()
   }, [vaultPath, loadTheme])
 
   const handleFileClick = useCallback(

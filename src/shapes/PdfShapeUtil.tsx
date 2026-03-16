@@ -48,6 +48,10 @@ export class PdfShapeUtil extends BaseBoxShapeUtil<PdfShape> {
     return false
   }
 
+  override canScroll() {
+    return true
+  }
+
   override component(shape: PdfShape) {
     return <PdfShapeComponent shape={shape} />
   }
@@ -75,8 +79,8 @@ function PdfShapeComponent({ shape }: { shape: PdfShape }) {
     const el = scrollRef.current
     if (!el) return
     const stop = (e: WheelEvent) => e.stopPropagation()
-    el.addEventListener('wheel', stop, { passive: false })
-    return () => el.removeEventListener('wheel', stop)
+    el.addEventListener('wheel', stop, true)
+    return () => el.removeEventListener('wheel', stop, true)
   }, [])
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {

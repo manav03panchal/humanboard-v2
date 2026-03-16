@@ -3,14 +3,21 @@ import { invoke } from '@tauri-apps/api/core'
 
 const WIKILINK_REGEX = /\[\[([^\]]+)\]\]/g
 
+interface GraphData {
+  nodes: string[]
+  edges: [string, string][]
+}
+
 interface LinkStore {
   links: Map<string, Set<string>>
   backlinks: Map<string, Set<string>>
+  graphData: GraphData
 
   scanFile: (filePath: string, content: string, allMdFiles: string[]) => void
   removeFile: (filePath: string) => void
   scanAllFiles: (vaultPath: string) => Promise<void>
-  getGraph: () => { nodes: string[]; edges: [string, string][] }
+  getGraph: () => GraphData
+  clear: () => void
 }
 
 export function resolveWikilink(
@@ -41,9 +48,23 @@ export function parseWikilinks(content: string): string[] {
   return matches
 }
 
+function buildGraphData(links: Map<string, Set<string>>): GraphData {
+  const nodeSet = new Set<string>()
+  const edges: [string, string][] = []
+  for (const [source, targets] of links) {
+    nodeSet.add(source)
+    for (const target of targets) {
+      nodeSet.add(target)
+      edges.push([source, target])
+    }
+  }
+  return { nodes: Array.from(nodeSet), edges }
+}
+
 export const useLinkStore = create<LinkStore>((set, get) => ({
   links: new Map(),
   backlinks: new Map(),
+  graphData: { nodes: [], edges: [] },
 
   scanFile: (filePath, content, allMdFiles) => {
     if (!filePath.endsWith('.md')) return
@@ -78,7 +99,7 @@ export const useLinkStore = create<LinkStore>((set, get) => ({
       }
 
       links.set(filePath, newTargets)
-      return { links, backlinks }
+      return { links, backlinks, graphData: buildGraphData(links) }
     })
   },
 
@@ -112,7 +133,7 @@ export const useLinkStore = create<LinkStore>((set, get) => ({
       }
       backlinks.delete(filePath)
 
-      return { links, backlinks }
+      return { links, backlinks, graphData: buildGraphData(links) }
     })
   },
 
@@ -135,19 +156,9 @@ export const useLinkStore = create<LinkStore>((set, get) => ({
     }
   },
 
-  getGraph: () => {
-    const { links } = get()
-    const nodeSet = new Set<string>()
-    const edges: [string, string][] = []
+  getGraph: () => get().graphData,
 
-    for (const [source, targets] of links) {
-      nodeSet.add(source)
-      for (const target of targets) {
-        nodeSet.add(target)
-        edges.push([source, target])
-      }
-    }
-
-    return { nodes: Array.from(nodeSet), edges }
+  clear: () => {
+    set({ links: new Map(), backlinks: new Map(), graphData: { nodes: [], edges: [] } })
   },
 }))

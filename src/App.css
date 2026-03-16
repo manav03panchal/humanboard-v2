@@ -90,6 +90,12 @@ body::-webkit-scrollbar {
 }
 .cm-scroller {
   overflow: auto !important;
+  overscroll-behavior: contain !important;
+}
+
+/* All scrollable shape content should contain scroll */
+.shape-scrollable {
+  overscroll-behavior: contain;
 }
 
 /* Dot grid pattern */
@@ -152,6 +158,9 @@ body::-webkit-scrollbar {
 }
 .markdown-body img {
   max-width: 100%;
+  border-radius: 4px;
+  margin: 8px 0;
+  display: block;
 }
 .markdown-body hr {
   border: none;
