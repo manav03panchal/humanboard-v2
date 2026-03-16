@@ -46,23 +46,30 @@ export function Canvas() {
   )
 
   useEffect(() => {
+    const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
+
     const handleOpenFile = (e: Event) => {
       const editor = editorRef.current
       if (!editor) return
       const { filePath, language } = (e as CustomEvent).detail
       const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
       const isPdf = ext === 'pdf'
+      const isImage = IMAGE_EXTENSIONS.includes(ext)
+      const isMarkdown = ext === 'md'
 
       // Check if shape already exists for this file
       const shapeTypes = ['code-shape', 'pdf-shape']
       const existing = editor.getCurrentPageShapes().find(
         (s) => shapeTypes.includes(s.type) && (s as any).props.filePath === filePath
+        (s) => ['code-shape', 'image-shape', 'markdown-shape'].includes(s.type) &&
+          (s as any).props.filePath === filePath
       )
       if (existing) {
         editor.select(existing.id)
         editor.zoomToSelection()
         return
       }
+
       // Create new shape at center of viewport
       const { x, y } = editor.getViewportPageBounds().center
       if (isPdf) {
@@ -71,6 +78,19 @@ export function Canvas() {
           x: x - 325,
           y: y - 400,
           props: { filePath, w: 650, h: 800 },
+      if (isImage) {
+        editor.createShape({
+          type: 'image-shape',
+          x: x - 250,
+          y: y - 200,
+          props: { filePath, w: 500, h: 400 },
+        })
+      } else if (isMarkdown) {
+        editor.createShape({
+          type: 'markdown-shape',
+          x: x - 300,
+          y: y - 250,
+          props: { filePath, w: 600, h: 500 },
         })
       } else {
         editor.createShape({
