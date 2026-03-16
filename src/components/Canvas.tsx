@@ -48,9 +48,12 @@ export function Canvas() {
       const editor = editorRef.current
       if (!editor) return
       const { filePath, language } = (e as CustomEvent).detail
+      const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+      const isMarkdown = ext === 'md'
       // Check if shape already exists for this file
       const existing = editor.getCurrentPageShapes().find(
-        (s) => s.type === 'code-shape' && (s as any).props.filePath === filePath
+        (s) => ['code-shape', 'image-shape', 'markdown-shape'].includes(s.type) &&
+          (s as any).props.filePath === filePath
       )
       if (existing) {
         editor.select(existing.id)
@@ -59,12 +62,21 @@ export function Canvas() {
       }
       // Create new shape at center of viewport
       const { x, y } = editor.getViewportPageBounds().center
-      editor.createShape({
-        type: 'code-shape',
-        x: x - 300,
-        y: y - 200,
-        props: { filePath, language, w: 600, h: 400 },
-      })
+      if (isMarkdown) {
+        editor.createShape({
+          type: 'markdown-shape',
+          x: x - 300,
+          y: y - 250,
+          props: { filePath, w: 600, h: 500 },
+        })
+      } else {
+        editor.createShape({
+          type: 'code-shape',
+          x: x - 300,
+          y: y - 200,
+          props: { filePath, language, w: 600, h: 400 },
+        })
+      }
     }
 
     window.addEventListener('humanboard:open-file', handleOpenFile)
