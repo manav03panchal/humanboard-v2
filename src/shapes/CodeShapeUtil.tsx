@@ -10,20 +10,13 @@ import {
 import CodeMirror from '@uiw/react-codemirror'
 import { useFileStore } from '../stores/fileStore'
 import { getLanguageExtension } from '../lib/language'
-import { lspServerLanguage } from '../lib/lspClient'
 import { buildCodeMirrorTheme, useThemeStore } from '../lib/theme'
-import { useLspStore } from '../stores/lspStore'
 import { useVaultStore } from '../stores/vaultStore'
-import {
-  lspAutocompletion,
-  lspDiagnosticsPlugin,
-  lspDiagnosticsTheme,
-  lspHoverExtension,
-  lspTooltipTheme,
-} from '../lib/lspExtensions'
+import { getLspClient, getServerLanguage, getLanguageId } from '../lib/lspManager'
 import { lintGutter } from '@codemirror/lint'
 import { NodeTitleBar } from '../components/NodeTitleBar'
-import { useCallback, useRef, useEffect, useMemo } from 'react'
+import { useCallback, useRef, useEffect, useMemo, useState } from 'react'
+import type { Extension } from '@codemirror/state'
 
 declare module 'tldraw' {
   interface TLGlobalShapePropsMap {
@@ -51,7 +44,6 @@ export class CodeShapeUtil extends BaseBoxShapeUtil<CodeShape> {
     return { w: 600, h: 400, filePath: '', language: 'typescript' }
   }
 
-  // canEdit=true means tldraw will pass events through when editing
   override canEdit() {
     return true
   }
@@ -77,7 +69,6 @@ export class CodeShapeUtil extends BaseBoxShapeUtil<CodeShape> {
   }
 }
 
-// Stop event helper — used on the interactive content area
 const stopEvent = (e: React.SyntheticEvent) => e.stopPropagation()
 
 function CodeShapeComponent({ shape }: { shape: CodeShape }) {
@@ -93,27 +84,32 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
   const getLineNumberColor = useThemeStore((s) => s.getLineNumberColor)
   const getActiveLineBackground = useThemeStore((s) => s.getActiveLineBackground)
   const getBorderColor = useThemeStore((s) => s.getBorderColor)
-  const getErrorColor = useThemeStore((s) => s.getErrorColor)
-  const getWarningColor = useThemeStore((s) => s.getWarningColor)
-  const getInfoColor = useThemeStore((s) => s.getInfoColor)
 
   const filePath = shape.props.filePath
-  const versionRef = useRef(1)
 
-  // --- LSP lifecycle ---
+  // --- LSP: get client and create plugin extension ---
+  const [lspExt, setLspExt] = useState<Extension[]>([])
+
   useEffect(() => {
     if (!vaultPath || !file) return
-    const lang = lspServerLanguage(filePath)
-    if (!lang) return
+    const serverLang = getServerLanguage(filePath)
+    if (!serverLang) return
 
-    useLspStore.getState().openFile(vaultPath, filePath, file.content)
+    let cancelled = false
 
-    return () => {
-      if (vaultPath) {
-        useLspStore.getState().closeFile(vaultPath, filePath)
-      }
-    }
-    // Only run on mount/unmount — do not re-run on content changes
+    getLspClient(serverLang, vaultPath).then((client) => {
+      if (cancelled || !client) return
+      const fileUri = `file://${vaultPath}/${filePath}`
+      const langId = getLanguageId(filePath) ?? serverLang
+      // client.plugin() returns an Extension with autocomplete, diagnostics,
+      // hover, signature help — everything
+      // client.plugin() returns an Extension with autocomplete, diagnostics,
+      // hover tooltips, signature help — the full IDE experience
+      const ext = client.plugin(fileUri, langId)
+      setLspExt([ext, lintGutter()])
+    })
+
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vaultPath, filePath])
 
@@ -133,46 +129,18 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
     [zedTheme, getEditorBackground, getEditorForeground, getGutterBackground, getLineNumberColor, getActiveLineBackground]
   )
 
-  // LSP extensions — only create when we have a vault path and a supported language
-  const lspExts = useMemo(() => {
-    if (!vaultPath) return []
-    const lang = lspServerLanguage(filePath)
-    if (!lang) return []
-
-    const colors = {
-      error: getErrorColor(),
-      warning: getWarningColor(),
-      info: getInfoColor(),
-    }
-
-    return [
-      lspAutocompletion(vaultPath, filePath),
-      lspDiagnosticsPlugin(vaultPath, filePath),
-      lspDiagnosticsTheme(colors),
-      lspHoverExtension(vaultPath, filePath),
-      lspTooltipTheme(),
-      lintGutter(),
-    ]
-  }, [vaultPath, filePath, getErrorColor, getWarningColor, getInfoColor])
-
   const extensions = useMemo(
-    () => [...cmTheme, ...(langExt ? [langExt] : []), ...lspExts],
-    [cmTheme, langExt, lspExts]
+    () => [...cmTheme, ...(langExt ? [langExt] : []), ...lspExt],
+    [cmTheme, langExt, lspExt]
   )
 
   const handleChange = useCallback(
     (value: string) => {
-      updateContent(filePath, value)
-      // Send didChange to LSP
-      if (vaultPath) {
-        versionRef.current += 1
-        useLspStore.getState().changeFile(vaultPath, filePath, value, versionRef.current)
-      }
+      updateContent(shape.props.filePath, value)
     },
-    [filePath, updateContent, vaultPath]
+    [shape.props.filePath, updateContent]
   )
 
-  // Click content area -> enter edit mode
   const handleContentPointerDown = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation()
@@ -183,14 +151,12 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
     [editor, shape.id, isEditing]
   )
 
-  // Stop wheel at DOM level — always, regardless of edit state
+  // Stop wheel at DOM level
   const editorDivRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = editorDivRef.current
     if (!el) return
-    const stopWheel = (e: WheelEvent) => {
-      e.stopPropagation()
-    }
+    const stopWheel = (e: WheelEvent) => e.stopPropagation()
     el.addEventListener('wheel', stopWheel, true)
     return () => el.removeEventListener('wheel', stopWheel, true)
   }, [])
@@ -223,12 +189,11 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
         border: `1px solid ${borderColor}`,
         borderRadius: 8,
         overflow: 'hidden',
-        // Per tldraw docs: opt into receiving pointer events
         pointerEvents: 'all',
       }}
     >
       <NodeTitleBar
-        filePath={filePath}
+        filePath={shape.props.filePath}
         isDirty={file.isDirty}
         shapeId={shape.id}
       />
@@ -240,11 +205,9 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
           overflow: 'hidden',
           position: 'relative',
         }}
-        // Per tldraw docs: stop propagation so canvas doesn't steal events
         onPointerDown={handleContentPointerDown}
         onTouchStart={stopEvent}
         onTouchEnd={stopEvent}
-        // When editing, also stop move/up/key events
         {...(isEditing ? {
           onPointerMove: stopEvent,
           onPointerUp: stopEvent,
@@ -266,14 +229,14 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
           extensions={extensions}
           theme="none"
           editable={isEditing}
+          height="100%"
           basicSetup={{
             lineNumbers: true,
             foldGutter: true,
             highlightActiveLine: true,
             bracketMatching: true,
-            autocompletion: false, // Using LSP autocompletion instead
+            autocompletion: false, // LSP handles this
           }}
-          height="100%"
           style={{ height: '100%', cursor: isEditing ? 'text' : 'default' }}
         />
       </div>

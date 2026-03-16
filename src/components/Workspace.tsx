@@ -10,6 +10,7 @@ import { useToastStore } from './Toast'
 import { useThemeStore } from '../lib/theme'
 import { getLanguageName } from '../lib/language'
 import { useLinkStore } from '../stores/linkStore'
+import { disconnectAll as disconnectLsp } from '../lib/lspManager'
 import { usePlatform } from '../hooks/usePlatform'
 import { QuickOpen } from './QuickOpen'
 
@@ -36,6 +37,7 @@ export function Workspace() {
       closeFile(filePath)
     }
     useLinkStore.getState().clear()
+    disconnectLsp()
   }, [vaultPath, loadTheme])
 
   const handleFileClick = useCallback(
