@@ -7,12 +7,12 @@
  *   3. The Canvas component picks it up automatically
  */
 import { CodeShapeUtil } from './CodeShapeUtil'
+import { TerminalShapeUtil } from './TerminalShapeUtil'
 
 // Phase 2: import { ImageShapeUtil } from './ImageShapeUtil'
-// Phase 2: import { TerminalShapeUtil } from './TerminalShapeUtil'
 
 export const customShapeUtils = [
   CodeShapeUtil,
+  TerminalShapeUtil,
   // Phase 2: ImageShapeUtil,
-  // Phase 2: TerminalShapeUtil,
 ]
