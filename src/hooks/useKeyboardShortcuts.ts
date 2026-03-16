@@ -10,6 +10,13 @@ export function useKeyboardShortcuts() {
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey
 
+      // Cmd+P — toggle quick open
+      if (meta && e.key === 'p') {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('humanboard:toggle-quick-open'))
+        return
+      }
+
       // Cmd+B — toggle sidebar
       if (meta && e.key === 'b') {
         e.preventDefault()
