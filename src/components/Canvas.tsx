@@ -28,6 +28,14 @@ export function Canvas() {
       if (vaultPath) {
         loadCanvasState(editor, vaultPath)
       }
+
+      // Remove stale terminal shapes (PTY sessions don't survive restart)
+      const shapes = editor.getCurrentPageShapes()
+      for (const shape of shapes) {
+        if (shape.type === 'terminal-shape') {
+          editor.deleteShape(shape.id)
+        }
+      }
       // Auto-save on changes (debounced 2s)
       editor.store.listen(
         () => {
@@ -44,6 +52,26 @@ export function Canvas() {
     },
     [vaultPath]
   )
+
+  // Cmd+` shortcut to create terminal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '`') {
+        e.preventDefault()
+        const editor = editorRef.current
+        if (!editor) return
+        const { x, y } = editor.getViewportPageBounds().center
+        editor.createShape({
+          type: 'terminal-shape',
+          x: x - 350,
+          y: y - 210,
+          props: { w: 700, h: 420, shell: '' },
+        })
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   useEffect(() => {
     const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
