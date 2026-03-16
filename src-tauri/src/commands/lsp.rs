@@ -97,13 +97,27 @@ pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result
         .env("PATH", &extended_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to start {binary}: {e}. Is it installed and in PATH?"))?;
 
     let server_id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr = child.stderr.take();
     let stdin = child.stdin.take().ok_or("Failed to capture stdin")?;
+
+    // Log stderr from language server
+    if let Some(stderr) = stderr {
+        let lang = language.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    eprintln!("[LSP {lang}] {line}");
+                }
+            }
+        });
+    }
 
     // Spawn stdout reader thread
     let app_handle = app.clone();
