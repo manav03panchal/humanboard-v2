@@ -58,10 +58,14 @@ fn get_lsp_binary(language: &str) -> Result<(String, Vec<String>), String> {
     }
 }
 
-/// Check if a binary exists on PATH.
+/// Check if a binary exists on PATH (including homebrew and cargo paths).
 fn which_exists(binary: &str) -> bool {
+    let path_env = std::env::var("PATH").unwrap_or_default();
+    let extended_path = format!("/opt/homebrew/bin:/usr/local/bin:{}/.cargo/bin:{}",
+        std::env::var("HOME").unwrap_or_default(), path_env);
     Command::new("which")
         .arg(binary)
+        .env("PATH", &extended_path)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
@@ -82,14 +86,20 @@ pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result
     }
 
     let (binary, args) = get_lsp_binary(&language)?;
+    // Ensure /opt/homebrew/bin and common paths are in PATH for finding language servers
+    let path_env = std::env::var("PATH").unwrap_or_default();
+    let extended_path = format!("/opt/homebrew/bin:/usr/local/bin:{}/.cargo/bin:{}",
+        std::env::var("HOME").unwrap_or_default(), path_env);
+
     let mut child = Command::new(&binary)
         .args(&args)
         .current_dir(&vault_path)
+        .env("PATH", &extended_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|e| format!("Failed to start {binary}: {e}. Is it installed?"))?;
+        .map_err(|e| format!("Failed to start {binary}: {e}. Is it installed and in PATH?"))?;
 
     let server_id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;

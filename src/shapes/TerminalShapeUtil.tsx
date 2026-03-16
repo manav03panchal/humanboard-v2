@@ -67,6 +67,10 @@ export class TerminalShapeUtil extends BaseBoxShapeUtil<TerminalShape> {
 
 function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
   const editor = useEditor()
+  const editorRef = useRef(editor)
+  editorRef.current = editor
+  const shapeIdRef = useRef(shape.id)
+  shapeIdRef.current = shape.id
   const [focused, setFocused] = useState(false)
   const termContainerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -148,6 +152,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
     // Spawn PTY
     const shellPath = shape.props.shell || '/bin/zsh'
     const cwd = useVaultStore.getState().vaultPath || undefined
+    let exitChecker: number | undefined
     try {
       const pty = spawn(shellPath, [], {
         cols: term.cols,
@@ -159,8 +164,24 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
       ptyRef.current = pty
       addSession(shape.id, shape.id, shellPath)
 
+      // Watch for process exit by detecting end of output
+      let lastDataTime = Date.now()
+      exitChecker = setInterval(() => {
+        // If no data for 2 seconds and PTY process is gone, close
+        if (Date.now() - lastDataTime > 2000) {
+          try {
+            // Try writing empty string to check if PTY is alive
+            pty.write('')
+          } catch {
+            clearInterval(exitChecker)
+            closeShape()
+          }
+        }
+      }, 1000)
+
       // PTY data -> xterm
       pty.onData((data: any) => {
+        lastDataTime = Date.now()
         try {
           if (typeof data === 'string') {
             term.write(data)
@@ -180,31 +201,30 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
         }
       })
 
+      const closeShape = () => {
+        removeSession(shapeIdRef.current)
+        if (!isCleaningUp.current) {
+          isCleaningUp.current = true
+          setTimeout(() => {
+            try {
+              editorRef.current.deleteShape(shapeIdRef.current)
+            } catch {}
+          }, 100)
+        }
+      }
+
       // xterm input -> PTY
       term.onData((data: string) => {
         try {
           pty.write(data)
-        } catch (e) {
-          console.error('pty write error:', e)
+        } catch {
+          // PTY is dead — close the shape
+          closeShape()
         }
       })
 
-      // Handle PTY exit — close the node (only if user exited, not cleanup)
-      pty.onExit(() => {
-        removeSession(shape.id)
-        if (!isCleaningUp.current) {
-          // Use setTimeout to let React finish any pending updates
-          setTimeout(() => {
-            try {
-              const shapes = editor.getCurrentPageShapes()
-              const exists = shapes.find((s) => s.id === shape.id)
-              if (exists) {
-                editor.deleteShape(shape.id)
-              }
-            } catch {}
-          }, 200)
-        }
-      })
+      // Handle PTY exit
+      pty.onExit(() => closeShape())
     } catch (err) {
       console.error('PTY spawn failed:', err)
       setError(`Failed to spawn terminal: ${err}`)
@@ -212,6 +232,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
 
     return () => {
       isCleaningUp.current = true
+      if (exitChecker) clearInterval(exitChecker)
       if (ptyRef.current) {
         try {
           ptyRef.current.kill()
