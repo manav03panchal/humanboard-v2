@@ -1,5 +1,5 @@
 import {
-  FileCode, FileText, FileJson, Image, File, Folder, FolderOpen, Terminal, Globe,
+  FileCode, FileText, FileJson, Image, File, Folder, FolderOpen, Terminal, Globe, FileType,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -8,6 +8,7 @@ const EXT_ICONS: Record<string, LucideIcon> = {
   rs: FileCode, py: FileCode, css: FileCode, html: FileCode,
   json: FileJson,
   md: FileText, txt: FileText,
+  pdf: FileType,
   png: Image, jpg: Image, jpeg: Image, gif: Image, svg: Image, webp: Image,
 }
 

@@ -22,7 +22,12 @@ export function Workspace() {
   const handleFileClick = useCallback(
     async (filePath: string) => {
       try {
-        await openFile(vaultPath, filePath)
+        const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+        const isBinary = ext === 'pdf'
+        // Binary files (PDFs) skip the text file store — shapes load them directly
+        if (!isBinary) {
+          await openFile(vaultPath, filePath)
+        }
         window.dispatchEvent(
           new CustomEvent('humanboard:open-file', {
             detail: { filePath, language: getLanguageName(filePath) },

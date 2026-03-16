@@ -7,6 +7,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::files::read_file,
+            commands::files::read_file_base64,
             commands::files::write_file,
             commands::files::read_dir,
             commands::vault::init_vault,
