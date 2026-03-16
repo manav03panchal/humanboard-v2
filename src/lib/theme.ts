@@ -64,6 +64,9 @@ interface ThemeState {
   getTextMuted: () => string
   getAccentColor: () => string
   getElementHover: () => string
+  getErrorColor: () => string
+  getWarningColor: () => string
+  getInfoColor: () => string
 }
 
 // Defaults (OLED black)
@@ -160,6 +163,18 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   getElementHover: () => {
     const t = get().zedTheme?.style
     return t?.['element.hover'] ?? DEFAULTS.elementHover
+  },
+  getErrorColor: () => {
+    const t = get().zedTheme?.style
+    return t?.['error'] ?? t?.['error.foreground'] ?? '#e06c75'
+  },
+  getWarningColor: () => {
+    const t = get().zedTheme?.style
+    return t?.['warning'] ?? t?.['warning.foreground'] ?? '#e5c07b'
+  },
+  getInfoColor: () => {
+    const t = get().zedTheme?.style
+    return t?.['info'] ?? t?.['info.foreground'] ?? '#61afef'
   },
 }))
 
