@@ -2,16 +2,17 @@ import {
   BaseBoxShapeUtil,
   HTMLContainer,
   T,
-  useIsEditing,
   useEditor,
   type RecordProps,
   type TLShape,
 } from 'tldraw'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebglAddon } from '@xterm/addon-webgl'
 import { spawn } from 'tauri-pty'
 import { useThemeStore } from '../lib/theme'
 import { usePtyStore } from '../stores/ptyStore'
+import { useVaultStore } from '../stores/vaultStore'
 import { useCallback, useRef, useEffect, useState } from 'react'
 import { Terminal as TerminalIcon, X } from 'lucide-react'
 
@@ -61,13 +62,14 @@ export class TerminalShapeUtil extends BaseBoxShapeUtil<TerminalShape> {
 }
 
 function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
-  const isEditing = useIsEditing(shape.id)
   const editor = useEditor()
+  const [focused, setFocused] = useState(false)
   const termContainerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const ptyRef = useRef<ReturnType<typeof spawn> | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const isCleaningUp = useRef(false)
   const addSession = usePtyStore((s) => s.addSession)
   const removeSession = usePtyStore((s) => s.removeSession)
   const getEditorBackground = useThemeStore((s) => s.getEditorBackground)
@@ -84,13 +86,32 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
 
     const term = new Terminal({
       cursorBlink: true,
-      fontFamily: '"JetBrains Mono NF", "JetBrains Mono", Menlo, Monaco, monospace',
-      fontSize: 13,
+      fontFamily: '"Iosevka Nerd Font Mono", "Iosevka", Menlo, Monaco, monospace',
+      fontSize: 14,
+      scrollback: 1000,
+      drawBoldTextInBrightColors: false,
       theme: {
         background: editorBg,
         foreground: editorFg,
         cursor: editorFg,
         cursorAccent: editorBg,
+        selectionBackground: 'rgba(255, 255, 255, 0.15)',
+        black: '#1a1a1a',
+        red: '#e06c75',
+        green: '#98c379',
+        yellow: '#e5c07b',
+        blue: '#61afef',
+        magenta: '#c678dd',
+        cyan: '#56b6c2',
+        white: '#abb2bf',
+        brightBlack: '#5c6370',
+        brightRed: '#e06c75',
+        brightGreen: '#98c379',
+        brightYellow: '#e5c07b',
+        brightBlue: '#61afef',
+        brightMagenta: '#c678dd',
+        brightCyan: '#56b6c2',
+        brightWhite: '#ffffff',
       },
       allowProposedApi: true,
     })
@@ -99,48 +120,87 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
     term.loadAddon(fitAddon)
     term.open(termContainerRef.current)
 
-    // Small delay to let the container size settle before fitting
-    setTimeout(() => {
-      try {
-        fitAddon.fit()
-      } catch {}
-    }, 50)
+    // Use WebGL renderer for performance (falls back to DOM if unsupported)
+    try {
+      const webglAddon = new WebglAddon()
+      webglAddon.onContextLoss(() => webglAddon.dispose())
+      term.loadAddon(webglAddon)
+    } catch {
+      console.warn('WebGL renderer not available, using DOM renderer')
+    }
+
+    // Wait for font to load before fitting
+    document.fonts.ready.then(() => {
+      setTimeout(() => {
+        try {
+          fitAddon.fit()
+        } catch {}
+      }, 50)
+    })
 
     termRef.current = term
     fitAddonRef.current = fitAddon
 
     // Spawn PTY
     const shellPath = shape.props.shell || '/bin/zsh'
-    const decoder = new TextDecoder()
+    const cwd = useVaultStore.getState().vaultPath || undefined
     try {
       const pty = spawn(shellPath, [], {
         cols: term.cols,
         rows: term.rows,
+        cwd: cwd || undefined,
+        name: 'xterm-256color',
       })
 
       ptyRef.current = pty
       addSession(shape.id, shape.id, shellPath)
 
-      // PTY data -> xterm (onData returns Uint8Array)
-      pty.onData((data: Uint8Array) => {
-        term.write(decoder.decode(data))
+      // PTY data -> xterm
+      pty.onData((data: any) => {
+        try {
+          if (typeof data === 'string') {
+            term.write(data)
+          } else if (data instanceof Uint8Array) {
+            term.write(data)
+          } else if (Array.isArray(data)) {
+            term.write(new Uint8Array(data))
+          } else if (data && typeof data === 'object') {
+            // Could be array-like from Tauri IPC serialization
+            const arr = Object.values(data) as number[]
+            term.write(new Uint8Array(arr))
+          } else {
+            term.write(String(data))
+          }
+        } catch (e) {
+          console.error('xterm write error:', e, 'data:', typeof data, JSON.stringify(data).slice(0, 200))
+        }
       })
 
       // xterm input -> PTY
       term.onData((data: string) => {
-        pty.write(data)
+        try {
+          pty.write(data)
+        } catch (e) {
+          console.error('pty write error:', e)
+        }
       })
 
-      // Handle PTY exit
+      // Handle PTY exit — close the node (only if user exited, not cleanup)
       pty.onExit(() => {
-        term.write('\r\n[Process exited]\r\n')
         removeSession(shape.id)
+        if (!isCleaningUp.current) {
+          setTimeout(() => {
+            editor.deleteShape(shape.id as any)
+          }, 100)
+        }
       })
     } catch (err) {
+      console.error('PTY spawn failed:', err)
       setError(`Failed to spawn terminal: ${err}`)
     }
 
     return () => {
+      isCleaningUp.current = true
       if (ptyRef.current) {
         try {
           ptyRef.current.kill()
@@ -175,11 +235,12 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation()
-      if (!isEditing) {
-        editor.setEditingShape(shape.id)
+      if (termRef.current) {
+        termRef.current.focus()
+        setFocused(true)
       }
     },
-    [editor, shape.id, isEditing]
+    []
   )
 
   const handleClose = useCallback(
@@ -283,20 +344,24 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
       </div>
       <div
         ref={termContainerRef}
+        className="terminal-container"
         style={{
           flex: 1,
           overflow: 'hidden',
           pointerEvents: 'all',
+          height: '100%',
         }}
         onPointerDown={handlePointerDown}
-        onPointerMove={(e) => { if (isEditing) e.stopPropagation() }}
-        onPointerUp={(e) => { if (isEditing) e.stopPropagation() }}
+        onPointerMove={(e) => { if (focused) e.stopPropagation() }}
+        onPointerUp={(e) => { if (focused) e.stopPropagation() }}
         onKeyDown={(e) => {
-          if (!isEditing) return
+          if (!focused) return
           e.stopPropagation()
         }}
-        onKeyUp={(e) => { if (isEditing) e.stopPropagation() }}
+        onKeyUp={(e) => { if (focused) e.stopPropagation() }}
         onWheel={(e) => e.stopPropagation()}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
       />
     </HTMLContainer>
   )

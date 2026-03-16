@@ -504,3 +504,88 @@ Phase 3:
 17. `Cmd+P` quick file search
 18. Multiple vaults / recent vaults management
 19. Cross-platform window decorations (Windows/Linux)
+20. LSP integration — autocomplete, diagnostics, hover docs, go-to-definition
+21. Graph view — `[[wikilink]]` parsing in `.md` files, live-updating graph node on canvas
+22. Zed theme live reload — file watcher on `.humanboard/theme.json`
+
+## LSP Integration (Phase 3)
+
+### Architecture
+
+```
+[CodeMirror in CodeShape] <--Tauri IPC--> [Rust LSP Manager] <--JSON-RPC stdio--> [Language Server]
+```
+
+- **Rust backend** (`src-tauri/src/commands/lsp.rs`): spawns and manages language server processes
+- **LSP Manager**: one server per language per vault (e.g. one `typescript-language-server` for all TS/JS files)
+- **Communication**: Tauri commands + events bridge JSON-RPC between frontend and language server
+- **CodeMirror**: uses `@codemirror/lsp-client` or custom extensions to consume LSP responses
+
+### Supported Language Servers
+
+| Language | Server | Install |
+|----------|--------|---------|
+| TypeScript/JavaScript | `typescript-language-server` | `bun add -g typescript-language-server` |
+| Rust | `rust-analyzer` | comes with rustup |
+| Python | `pyright` / `pylsp` | `pip install pyright` |
+| CSS/HTML/JSON | `vscode-langservers-extracted` | `bun add -g vscode-langservers-extracted` |
+
+### Features
+
+- **Autocomplete**: completions from LSP displayed in CodeMirror's autocomplete popup
+- **Diagnostics**: errors/warnings shown as inline decorations (red/yellow underlines)
+- **Hover**: type info and docs shown on hover over symbols
+- **Go-to-definition**: Cmd+Click on a symbol opens or pans to the target file's CodeShape
+- **Find references**: highlight all references to a symbol across open files
+
+### Rust Commands
+
+```rust
+#[tauri::command]
+fn lsp_start(language: String, vault_path: String) -> Result<u32, String>  // returns server_id
+
+#[tauri::command]
+fn lsp_send(server_id: u32, message: String) -> Result<(), String>  // send JSON-RPC message
+
+#[tauri::command]
+fn lsp_stop(server_id: u32) -> Result<(), String>
+```
+
+LSP responses emitted as Tauri events: `lsp_response_{server_id}`
+
+### Auto-detection
+
+When a CodeShape opens, check the file extension → determine language → check if an LSP server for that language is already running → if not, attempt to spawn one. Fail gracefully if the language server binary isn't installed (toast: "Install typescript-language-server for IntelliSense").
+
+## Graph View (Phase 3)
+
+### Wikilink Parsing
+
+Parse `[[wikilinks]]` only in `.md` files. Regex: `/\[\[([^\]]+)\]\]/g`
+
+### GraphShape
+
+A custom tldraw shape that renders a force-directed graph of all `.md` files and their `[[wikilink]]` connections:
+
+- Nodes = `.md` files in the vault
+- Edges = `[[wikilink]]` references between files
+- Click a node in the graph → pan canvas to that file's shape (or open it if not on canvas)
+- Auto-updates as files are edited and saved
+- Uses a lightweight force layout (d3-force or custom)
+
+### Data Flow
+
+```
+User edits .md file → save → scan for [[wikilinks]] → update link graph in store → GraphShape re-renders
+```
+
+### Link Store (Zustand)
+
+```typescript
+interface LinkStore {
+  links: Map<filePath, Set<targetFilePath>>  // outgoing links per file
+  backlinks: Map<filePath, Set<sourceFilePath>>  // incoming links per file
+  scanFile: (filePath: string, content: string) => void
+  getGraph: () => { nodes: string[], edges: [string, string][] }
+}
+```

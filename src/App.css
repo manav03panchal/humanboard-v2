@@ -11,7 +11,7 @@ body::-webkit-scrollbar {
 }
 
 :root {
-  font-family: "JetBrains Mono NF", "JetBrains Mono", Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Iosevka Nerd Font Mono", "Iosevka", Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   font-weight: 400;
@@ -54,10 +54,15 @@ body::-webkit-scrollbar {
   stroke-width: 1 !important;
 }
 
-/* Resize handles — subtle white, not blue */
+/* Resize handles — always visible when selected, larger hit area */
 .tl-selection__fg__corner {
-  fill: rgba(255, 255, 255, 0.6) !important;
+  fill: rgba(255, 255, 255, 0.5) !important;
   stroke: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Make resize hit area larger so it's easy to grab */
+.tl-selection__fg {
+  pointer-events: all !important;
 }
 
 .tl-selection__bg {
@@ -79,6 +84,30 @@ body::-webkit-scrollbar {
   border-radius: 3px;
 }
 
+/* CodeMirror must scroll within its container */
+.cm-editor {
+  height: 100% !important;
+}
+.cm-scroller {
+  overflow: auto !important;
+}
+
+/* Dot grid pattern */
+.tl-grid {
+  opacity: 0.15 !important;
+}
+
+/* Force xterm to fill terminal container */
+.terminal-container .xterm {
+  height: 100% !important;
+}
+.terminal-container .xterm-viewport {
+  height: 100% !important;
+}
+.terminal-container .xterm-screen {
+  height: 100% !important;
+}
+
 /* Markdown rendered view */
 .markdown-body h1, .markdown-body h2, .markdown-body h3,
 .markdown-body h4, .markdown-body h5, .markdown-body h6 {
@@ -94,7 +123,7 @@ body::-webkit-scrollbar {
   background: rgba(255,255,255,0.1);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Iosevka Nerd Font Mono', 'Iosevka', monospace;
   font-size: 0.9em;
 }
 .markdown-body pre {

@@ -2,8 +2,8 @@ import {
   BaseBoxShapeUtil,
   HTMLContainer,
   T,
-  useIsEditing,
   useEditor,
+  useIsEditing,
   type RecordProps,
   type TLShape,
 } from 'tldraw'
@@ -40,6 +40,7 @@ export class CodeShapeUtil extends BaseBoxShapeUtil<CodeShape> {
     return { w: 600, h: 400, filePath: '', language: 'typescript' }
   }
 
+  // canEdit=true means tldraw will pass events through when editing
   override canEdit() {
     return true
   }
@@ -61,9 +62,12 @@ export class CodeShapeUtil extends BaseBoxShapeUtil<CodeShape> {
   }
 }
 
+// Stop event helper — used on the interactive content area
+const stopEvent = (e: React.SyntheticEvent) => e.stopPropagation()
+
 function CodeShapeComponent({ shape }: { shape: CodeShape }) {
-  const isEditing = useIsEditing(shape.id)
   const editor = useEditor()
+  const isEditing = useIsEditing(shape.id)
   const file = useFileStore((s) => s.files.get(shape.props.filePath))
   const updateContent = useFileStore((s) => s.updateContent)
   const zedTheme = useThemeStore((s) => s.zedTheme)
@@ -101,8 +105,8 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
     [shape.props.filePath, updateContent]
   )
 
-  // Single click on code area → enter edit mode
-  const handlePointerDown = useCallback(
+  // Click content area -> enter edit mode
+  const handleContentPointerDown = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation()
       if (!isEditing) {
@@ -112,14 +116,16 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
     [editor, shape.id, isEditing]
   )
 
-  // Capture wheel at DOM level to prevent tldraw zoom
+  // Stop wheel at DOM level — always, regardless of edit state
   const editorDivRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = editorDivRef.current
     if (!el) return
-    const stop = (e: WheelEvent) => e.stopPropagation()
-    el.addEventListener('wheel', stop, { passive: false })
-    return () => el.removeEventListener('wheel', stop)
+    const stopWheel = (e: WheelEvent) => {
+      e.stopPropagation()
+    }
+    el.addEventListener('wheel', stopWheel, true)
+    return () => el.removeEventListener('wheel', stopWheel, true)
   }, [])
 
   const editorBg = getEditorBackground()
@@ -150,6 +156,8 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
         border: `1px solid ${borderColor}`,
         borderRadius: 8,
         overflow: 'hidden',
+        // Per tldraw docs: opt into receiving pointer events
+        pointerEvents: 'all',
       }}
     >
       <NodeTitleBar
@@ -161,20 +169,28 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
         ref={editorDivRef}
         style={{
           flex: 1,
-          overflow: 'auto',
-          pointerEvents: 'all',
+          overflow: 'hidden',
+          position: 'relative',
         }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={(e) => { if (isEditing) e.stopPropagation() }}
-        onPointerUp={(e) => { if (isEditing) e.stopPropagation() }}
-        onKeyDown={(e) => {
-          if (!isEditing) return
-          const meta = e.metaKey || e.ctrlKey
-          if (meta && e.key === 's') return
-          if (e.key === 'Escape') return
-          e.stopPropagation()
-        }}
-        onKeyUp={(e) => { if (isEditing) e.stopPropagation() }}
+        // Per tldraw docs: stop propagation so canvas doesn't steal events
+        onPointerDown={handleContentPointerDown}
+        onTouchStart={stopEvent}
+        onTouchEnd={stopEvent}
+        // When editing, also stop move/up/key events
+        {...(isEditing ? {
+          onPointerMove: stopEvent,
+          onPointerUp: stopEvent,
+          onKeyDown: (e: React.KeyboardEvent) => {
+            const meta = e.metaKey || e.ctrlKey
+            if (meta && (e.key === 's' || e.key === 'b' || e.key === 'f')) return
+            if (e.key === 'Escape') {
+              editor.setEditingShape(null)
+              return
+            }
+            e.stopPropagation()
+          },
+          onKeyUp: stopEvent,
+        } : {})}
       >
         <CodeMirror
           value={file.content}
@@ -189,7 +205,8 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
             bracketMatching: true,
             autocompletion: true,
           }}
-          style={{ height: '100%', cursor: 'text' }}
+          height="100%"
+          style={{ height: '100%', cursor: isEditing ? 'text' : 'default' }}
         />
       </div>
     </HTMLContainer>

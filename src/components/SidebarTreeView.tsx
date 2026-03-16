@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { getFileIcon } from '../lib/fileIcons'
+import { getLanguageName } from '../lib/language'
 import type { TreeNode } from '../stores/vaultStore'
 
 interface TreeNodeData {
@@ -161,9 +162,41 @@ function TreeFileItem({
 }) {
   const Icon = getFileIcon(path, false)
 
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    const startX = e.clientX
+    const startY = e.clientY
+    let dragging = false
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging && (Math.abs(ev.clientX - startX) > 5 || Math.abs(ev.clientY - startY) > 5)) {
+        dragging = true
+        document.body.style.cursor = 'grabbing'
+      }
+    }
+
+    const onUp = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      if (dragging) {
+        const language = getLanguageName(path)
+        window.dispatchEvent(
+          new CustomEvent('humanboard:open-file', {
+            detail: { filePath: path, language, dropX: ev.clientX, dropY: ev.clientY },
+          })
+        )
+      }
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [path])
+
   return (
     <button
       onClick={() => onClick(path)}
+      onMouseDown={handleMouseDown}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -174,7 +207,7 @@ function TreeFileItem({
         border: 'none',
         color: '#ccc',
         fontSize: 13,
-        cursor: 'pointer',
+        cursor: 'grab',
         width: '100%',
         textAlign: 'left',
         borderRadius: 4,

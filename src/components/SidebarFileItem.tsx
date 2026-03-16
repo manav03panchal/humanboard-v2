@@ -1,5 +1,6 @@
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
 import { getFileIcon } from '../lib/fileIcons'
+import { getLanguageName } from '../lib/language'
 
 interface SidebarFileItemProps {
   name: string
@@ -13,9 +14,42 @@ export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir
   const Icon = getFileIcon(path, isDir)
   const dateStr = formatDate(modifiedAt)
 
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (isDir || e.button !== 0) return
+    const startX = e.clientX
+    const startY = e.clientY
+    let dragging = false
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging && (Math.abs(ev.clientX - startX) > 5 || Math.abs(ev.clientY - startY) > 5)) {
+        dragging = true
+        document.body.style.cursor = 'grabbing'
+      }
+    }
+
+    const onUp = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      if (dragging) {
+        // Dropped — place at mouse position
+        const language = getLanguageName(path)
+        window.dispatchEvent(
+          new CustomEvent('humanboard:open-file', {
+            detail: { filePath: path, language, dropX: ev.clientX, dropY: ev.clientY },
+          })
+        )
+      }
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [path, isDir])
+
   return (
     <button
       onClick={() => onClick(path)}
+      onMouseDown={handleMouseDown}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -25,7 +59,7 @@ export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir
         border: 'none',
         color: '#ccc',
         fontSize: 13,
-        cursor: 'pointer',
+        cursor: isDir ? 'pointer' : 'grab',
         width: '100%',
         textAlign: 'left',
         borderRadius: 4,

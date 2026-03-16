@@ -33,7 +33,7 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
   fileTree: [],
 
   setVaultPath: (path) => {
-    set({ vaultPath: path })
+    set({ vaultPath: path, fileTree: [] })
     get().addRecentVault(path)
     get().loadFileTree()
   },

@@ -13,7 +13,7 @@ import { useVaultStore } from '../stores/vaultStore'
 
 declare module 'tldraw' {
   interface TLGlobalShapePropsMap {
-    'image-shape': {
+    'audio-shape': {
       w: number
       h: number
       filePath: string
@@ -21,18 +21,18 @@ declare module 'tldraw' {
   }
 }
 
-export type ImageShape = TLShape<'image-shape'>
+export type AudioShape = TLShape<'audio-shape'>
 
-export class ImageShapeUtil extends BaseBoxShapeUtil<ImageShape> {
-  static override type = 'image-shape' as const
-  static override props: RecordProps<ImageShape> = {
+export class AudioShapeUtil extends BaseBoxShapeUtil<AudioShape> {
+  static override type = 'audio-shape' as const
+  static override props: RecordProps<AudioShape> = {
     w: T.number,
     h: T.number,
     filePath: T.string,
   }
 
-  override getDefaultProps(): ImageShape['props'] {
-    return { w: 500, h: 400, filePath: '' }
+  override getDefaultProps(): AudioShape['props'] {
+    return { w: 400, h: 140, filePath: '' }
   }
 
   override canEdit() {
@@ -47,45 +47,28 @@ export class ImageShapeUtil extends BaseBoxShapeUtil<ImageShape> {
     return false
   }
 
-  override component(shape: ImageShape) {
-    return <ImageShapeComponent shape={shape} />
+  override component(shape: AudioShape) {
+    return <AudioShapeComponent shape={shape} />
   }
 
-  override indicator(shape: ImageShape) {
+  override indicator(shape: AudioShape) {
     return <rect width={shape.props.w} height={shape.props.h} />
   }
 }
 
-function ImageShapeComponent({ shape }: { shape: ImageShape }) {
+function AudioShapeComponent({ shape }: { shape: AudioShape }) {
   const vaultPath = useVaultStore((s) => s.vaultPath)
   const getEditorBackground = useThemeStore((s) => s.getEditorBackground)
   const getBorderColor = useThemeStore((s) => s.getBorderColor)
 
-  const imgSrc = useMemo(() => {
+  const audioSrc = useMemo(() => {
     if (!vaultPath || !shape.props.filePath) return null
-    return convertFileSrc(`${vaultPath}/${shape.props.filePath}`)
+    const fullPath = `${vaultPath}/${shape.props.filePath}`
+    return convertFileSrc(fullPath)
   }, [vaultPath, shape.props.filePath])
 
   const editorBg = getEditorBackground()
   const borderColor = getBorderColor()
-
-  if (!imgSrc) {
-    return (
-      <HTMLContainer
-        style={{
-          backgroundColor: editorBg,
-          color: '#888',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: `1px solid ${borderColor}`,
-          borderRadius: 8,
-        }}
-      >
-        No file
-      </HTMLContainer>
-    )
-  }
 
   return (
     <HTMLContainer
@@ -106,23 +89,27 @@ function ImageShapeComponent({ shape }: { shape: ImageShape }) {
       <div
         style={{
           flex: 1,
-          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: 8,
+          padding: '12px 16px',
+          pointerEvents: 'all',
         }}
+        onPointerDown={(e) => e.stopPropagation()}
       >
-        <img
-          src={imgSrc}
-          alt={shape.props.filePath}
-          style={{
-            maxWidth: '100%',
-            maxHeight: '100%',
-            objectFit: 'contain',
-          }}
-          draggable={false}
-        />
+        {audioSrc ? (
+          <audio
+            src={audioSrc}
+            controls
+            style={{
+              width: '100%',
+              height: 40,
+              filter: 'invert(1)',
+            }}
+          />
+        ) : (
+          <span style={{ color: '#888' }}>No file</span>
+        )}
       </div>
     </HTMLContainer>
   )

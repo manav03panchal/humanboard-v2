@@ -47,6 +47,57 @@ pub fn write_file(vault_root: String, file_path: String, content: String) -> Res
 }
 
 #[tauri::command]
+pub fn copy_file_into_vault(
+    source_path: String,
+    vault_root: String,
+    dest_relative: String,
+) -> Result<String, String> {
+    let src = Path::new(&source_path);
+    if !src.exists() {
+        return Err(format!("Source file not found: {source_path}"));
+    }
+    let root = fs::canonicalize(&vault_root).map_err(|e| format!("Invalid vault root: {e}"))?;
+    let dest = root.join(&dest_relative);
+    // Ensure dest is within vault
+    if !dest.starts_with(&root) {
+        return Err("Destination path traversal denied".into());
+    }
+    // Create parent dirs if needed
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Cannot create directory: {e}"))?;
+    }
+    // Handle name collision — append (1), (2), etc.
+    let final_dest = if dest.exists() {
+        let stem = dest
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        let ext = dest
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+        let parent = dest.parent().unwrap_or(&root);
+        let mut candidate = dest.clone();
+        let mut i = 1;
+        while candidate.exists() {
+            candidate = parent.join(format!("{stem} ({i}){ext}"));
+            i += 1;
+        }
+        candidate
+    } else {
+        dest
+    };
+    fs::copy(src, &final_dest).map_err(|e| format!("Cannot copy file: {e}"))?;
+    let relative = final_dest
+        .strip_prefix(&root)
+        .unwrap_or(&final_dest)
+        .to_string_lossy()
+        .to_string();
+    Ok(relative)
+}
+
+#[tauri::command]
 pub fn read_dir(vault_root: String, dir_path: String) -> Result<Vec<FileEntry>, String> {
     let root = fs::canonicalize(&vault_root).map_err(|e| format!("Invalid vault root: {e}"))?;
     let target = if dir_path.is_empty() {
@@ -76,6 +127,15 @@ pub fn read_file_base64(vault_root: String, file_path: String) -> Result<String,
         "gif" => "image/gif",
         "svg" => "image/svg+xml",
         "webp" => "image/webp",
+        "pdf" => "application/pdf",
+        "mp3" => "audio/mpeg",
+        "wav" => "audio/wav",
+        "ogg" => "audio/ogg",
+        "flac" => "audio/flac",
+        "aac" => "audio/aac",
+        "m4a" => "audio/mp4",
+        "mp4" => "video/mp4",
+        "webm" => "video/webm",
         _ => "application/octet-stream",
     };
     let b64 = STANDARD.encode(&content);

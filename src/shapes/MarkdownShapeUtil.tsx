@@ -160,21 +160,11 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
         overflow: 'hidden',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={{ flex: 1 }}>
-          <NodeTitleBar
-            filePath={shape.props.filePath}
-            isDirty={file.isDirty}
-            shapeId={shape.id}
-          />
-        </div>
-        <div
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-          onPointerMove={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          style={{ paddingRight: 8, display: 'flex', pointerEvents: 'all' }}
-        >
+      <NodeTitleBar
+        filePath={shape.props.filePath}
+        isDirty={file.isDirty}
+        shapeId={shape.id}
+        extraActions={
           <button
             onPointerDown={(e) => { e.stopPropagation(); handleToggleMode(e as any) }}
             style={{
@@ -191,8 +181,8 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
           >
             <ToggleIcon size={14} strokeWidth={1.5} />
           </button>
-        </div>
-      </div>
+        }
+      />
       <div
         ref={editorDivRef}
         style={{

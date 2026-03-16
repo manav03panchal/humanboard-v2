@@ -13,8 +13,7 @@ export const SidebarSearch = memo(function SidebarSearch({ value, onChange }: Si
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        padding: '4px 10px',
-        margin: '0 8px 8px',
+        padding: '5px 10px',
         backgroundColor: '#0a0a0a',
         border: '1px solid #1a1a1a',
         borderRadius: 6,
@@ -22,9 +21,11 @@ export const SidebarSearch = memo(function SidebarSearch({ value, onChange }: Si
     >
       <Search size={14} strokeWidth={1.5} color="#555" />
       <input
+        data-sidebar-search
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Search..."
+        onKeyDown={(e) => { if (e.key === 'Escape') { onChange(''); (e.target as HTMLInputElement).blur() } }}
         style={{
           flex: 1,
           backgroundColor: 'transparent',

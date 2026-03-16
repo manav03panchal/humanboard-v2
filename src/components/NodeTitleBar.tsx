@@ -11,9 +11,10 @@ interface NodeTitleBarProps {
   shapeId: string
   label?: string
   icon?: React.ComponentType<{ size?: number; strokeWidth?: number }>
+  extraActions?: React.ReactNode
 }
 
-export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon }: NodeTitleBarProps) {
+export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon, extraActions }: NodeTitleBarProps) {
   const editor = useEditor()
   const closeFile = useFileStore((s) => s.closeFile)
   const file = useFileStore((s) => s.files.get(filePath))
@@ -89,6 +90,7 @@ export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon }: NodeTi
         onClick={(e) => e.stopPropagation()}
         style={{ display: 'flex', gap: 2, pointerEvents: 'all' }}
       >
+        {extraActions}
         <button
           onPointerDown={(e) => { e.stopPropagation(); handleCopy(e as any) }}
           style={iconButtonStyle}

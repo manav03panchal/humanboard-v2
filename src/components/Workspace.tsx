@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { PanelLeft } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { Canvas } from './Canvas'
 import { useFileStore } from '../stores/fileStore'
@@ -14,16 +15,22 @@ export function Workspace() {
   const addToast = useToastStore((s) => s.addToast)
   const loadTheme = useThemeStore((s) => s.loadTheme)
 
-  // Load theme from .humanboard/theme.json on vault open
+  // On vault change: load theme, clear file store
   useEffect(() => {
     loadTheme(vaultPath)
+    // Clear all open files from previous vault
+    const { files, closeFile } = useFileStore.getState()
+    for (const filePath of files.keys()) {
+      closeFile(filePath)
+    }
   }, [vaultPath, loadTheme])
 
   const handleFileClick = useCallback(
     async (filePath: string) => {
       try {
         const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
-        const isBinary = ext === 'pdf'
+        const BINARY_EXTS = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a']
+        const isBinary = BINARY_EXTS.includes(ext)
         // Binary files (PDFs) skip the text file store — shapes load them directly
         if (!isBinary) {
           await openFile(vaultPath, filePath)
@@ -58,9 +65,41 @@ export function Workspace() {
         }}
       />
       <Sidebar onFileClick={handleFileClick} />
+      <SidebarOpenTab />
       <div style={{ flex: 1, height: '100%' }}>
-        <Canvas />
+        <Canvas key={vaultPath} />
       </div>
     </div>
+  )
+}
+
+function SidebarOpenTab() {
+  const sidebarOpen = useVaultStore((s) => s.sidebarOpen)
+  const toggleSidebar = useVaultStore((s) => s.toggleSidebar)
+
+  if (sidebarOpen) return null
+
+  return (
+    <button
+      onClick={toggleSidebar}
+      style={{
+        position: 'fixed',
+        left: 0,
+        top: 40,
+        zIndex: 100,
+        background: '#0a0a0a',
+        border: '1px solid #1a1a1a',
+        borderLeft: 'none',
+        borderRadius: '0 6px 6px 0',
+        color: '#666',
+        cursor: 'pointer',
+        padding: '8px 6px',
+        display: 'flex',
+        alignItems: 'center',
+      }}
+      title="Open sidebar (Cmd+B)"
+    >
+      <PanelLeft size={14} strokeWidth={1.5} />
+    </button>
   )
 }

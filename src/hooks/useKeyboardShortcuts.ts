@@ -17,6 +17,19 @@ export function useKeyboardShortcuts() {
         return
       }
 
+      // Cmd+F — focus sidebar search
+      if (meta && e.key === 'f') {
+        e.preventDefault()
+        const { sidebarOpen } = useVaultStore.getState()
+        if (!sidebarOpen) useVaultStore.getState().toggleSidebar()
+        // Focus the search input
+        setTimeout(() => {
+          const input = document.querySelector('[data-sidebar-search]') as HTMLInputElement
+          if (input) input.focus()
+        }, 50)
+        return
+      }
+
       // Cmd+S — save all dirty files
       if (meta && e.key === 's') {
         e.preventDefault()

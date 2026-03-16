@@ -8,8 +8,8 @@ import {
 import { Document, Page } from 'react-pdf'
 import { NodeTitleBar } from '../components/NodeTitleBar'
 import { useThemeStore } from '../lib/theme'
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import { useVaultStore } from '../stores/vaultStore'
 
 declare module 'tldraw' {
@@ -58,7 +58,6 @@ export class PdfShapeUtil extends BaseBoxShapeUtil<PdfShape> {
 }
 
 function PdfShapeComponent({ shape }: { shape: PdfShape }) {
-  const [pdfData, setPdfData] = useState<string | null>(null)
   const [numPages, setNumPages] = useState<number>(0)
   const [error, setError] = useState<string | null>(null)
   const vaultPath = useVaultStore((s) => s.vaultPath)
@@ -66,14 +65,9 @@ function PdfShapeComponent({ shape }: { shape: PdfShape }) {
   const getBorderColor = useThemeStore((s) => s.getBorderColor)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!vaultPath || !shape.props.filePath) return
-    invoke<string>('read_file_base64', {
-      vaultRoot: vaultPath,
-      filePath: shape.props.filePath,
-    })
-      .then((base64) => setPdfData(`data:application/pdf;base64,${base64}`))
-      .catch((err) => setError(String(err)))
+  const pdfSrc = useMemo(() => {
+    if (!vaultPath || !shape.props.filePath) return null
+    return convertFileSrc(`${vaultPath}/${shape.props.filePath}`)
   }, [vaultPath, shape.props.filePath])
 
   // Stop wheel events from reaching tldraw
@@ -148,9 +142,9 @@ function PdfShapeComponent({ shape }: { shape: PdfShape }) {
           alignItems: 'center',
         }}
       >
-        {pdfData ? (
+        {pdfSrc ? (
           <Document
-            file={pdfData}
+            file={pdfSrc}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={(err) => setError(`PDF load error: ${err.message}`)}
             loading={<span style={{ color: '#888', padding: 16 }}>Loading PDF...</span>}
