@@ -1,71 +1,64 @@
-import { useVaultStore, TreeNode } from '../stores/vaultStore'
+import { useState } from 'react'
+import { useVaultStore } from '../stores/vaultStore'
+import { SidebarVaultDropdown } from './SidebarVaultDropdown'
+import { SidebarSearch } from './SidebarSearch'
+import { SidebarFileList } from './SidebarFileList'
+import { ArrowUpDown } from 'lucide-react'
 
-function FileTreeItem({ node, onSelect, selectedPath }: {
-  node: TreeNode
-  onSelect: (path: string) => void
-  selectedPath: string | null
-}) {
-  const isSelected = node.path === selectedPath
-
-  if (node.isDir) {
-    return (
-      <div className="tree-folder">
-        <div className="tree-item tree-folder-name">{node.name}</div>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className={`tree-item tree-file ${isSelected ? 'tree-file--selected' : ''}`}
-      onClick={() => onSelect(node.path)}
-    >
-      {node.name}
-    </div>
-  )
+interface SidebarProps {
+  onFileClick: (path: string) => void
 }
 
-export function Sidebar({ selectedFile, onSelectFile }: {
-  selectedFile: string | null
-  onSelectFile: (path: string) => void
-}) {
-  const fileTree = useVaultStore((s) => s.fileTree)
+export function Sidebar({ onFileClick }: SidebarProps) {
   const sidebarOpen = useVaultStore((s) => s.sidebarOpen)
   const sidebarSort = useVaultStore((s) => s.sidebarSort)
   const setSidebarSort = useVaultStore((s) => s.setSidebarSort)
+  const [searchQuery, setSearchQuery] = useState('')
 
   if (!sidebarOpen) return null
 
-  const sorted = [...fileTree].sort((a, b) => {
-    if (sidebarSort === 'date') return b.modifiedAt - a.modifiedAt
-    return a.name.localeCompare(b.name)
-  })
-
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <span className="sidebar-title">Files</span>
+    <div
+      style={{
+        width: 260,
+        height: '100%',
+        backgroundColor: '#000',
+        borderRight: '1px solid #1a1a1a',
+        display: 'flex',
+        flexDirection: 'column',
+        flexShrink: 0,
+        zIndex: 50,
+      }}
+    >
+      <div style={{ height: 28 }} /> {/* titlebar spacer */}
+      <SidebarVaultDropdown />
+      <SidebarSearch value={searchQuery} onChange={setSearchQuery} />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          padding: '0 12px 4px',
+        }}
+      >
         <button
-          className="sidebar-sort-btn"
           onClick={() => setSidebarSort(sidebarSort === 'date' ? 'alpha' : 'date')}
-          title={`Sort by ${sidebarSort === 'date' ? 'name' : 'date'}`}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#555',
+            cursor: 'pointer',
+            fontSize: 11,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
         >
-          {sidebarSort === 'date' ? 'A→Z' : '🕐'}
+          <ArrowUpDown size={12} />
+          {sidebarSort === 'date' ? 'Created' : 'A-Z'}
         </button>
       </div>
-      <div className="sidebar-tree">
-        {sorted.map((node) => (
-          <FileTreeItem
-            key={node.path}
-            node={node}
-            onSelect={onSelectFile}
-            selectedPath={selectedFile}
-          />
-        ))}
-        {sorted.length === 0 && (
-          <div className="sidebar-empty">No files yet</div>
-        )}
-      </div>
-    </aside>
+      <SidebarFileList searchQuery={searchQuery} onFileClick={onFileClick} />
+    </div>
   )
 }
