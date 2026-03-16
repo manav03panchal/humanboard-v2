@@ -8,11 +8,13 @@
  */
 import { CodeShapeUtil } from './CodeShapeUtil'
 import { ImageShapeUtil } from './ImageShapeUtil'
+import { MarkdownShapeUtil } from './MarkdownShapeUtil'
 
 // Phase 2: import { TerminalShapeUtil } from './TerminalShapeUtil'
 
 export const customShapeUtils = [
   CodeShapeUtil,
   ImageShapeUtil,
+  MarkdownShapeUtil,
   // Phase 2: TerminalShapeUtil,
 ]

@@ -14,6 +14,7 @@ interface FileStore {
   saveFile: (vaultRoot: string, filePath: string) => Promise<void>
   closeFile: (filePath: string) => void
   getFile: (filePath: string) => FileEntry | undefined
+  reloadFile: (vaultRoot: string, filePath: string) => Promise<void>
 }
 
 export const useFileStore = create<FileStore>((set, get) => ({
@@ -74,4 +75,28 @@ export const useFileStore = create<FileStore>((set, get) => ({
   },
 
   getFile: (filePath) => get().files.get(filePath),
+
+  reloadFile: async (vaultRoot, filePath) => {
+    const existing = get().files.get(filePath)
+    if (!existing) return
+    if (existing.isDirty) return
+
+    try {
+      const content = await invoke<string>('read_file', {
+        vaultRoot,
+        filePath,
+      })
+      set((state) => {
+        const files = new Map(state.files)
+        files.set(filePath, { content, diskContent: content, isDirty: false })
+        return { files }
+      })
+    } catch {
+      set((state) => {
+        const files = new Map(state.files)
+        files.delete(filePath)
+        return { files }
+      })
+    }
+  },
 }))

@@ -4,8 +4,10 @@ import 'tldraw/tldraw.css'
 import { customShapeUtils } from '../shapes'
 import { saveCanvasState, loadCanvasState } from '../lib/canvasPersistence'
 import { useVaultStore } from '../stores/vaultStore'
+import { useFileWatcher } from '../hooks/useFileWatcher'
 
 export function Canvas() {
+  useFileWatcher()
   const editorRef = useRef<Editor | null>(null)
   const vaultPath = useVaultStore((s) => s.vaultPath)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -52,11 +54,11 @@ export function Canvas() {
       const { filePath, language } = (e as CustomEvent).detail
       const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
       const isImage = IMAGE_EXTENSIONS.includes(ext)
+      const isMarkdown = ext === 'md'
 
-      // Check if shape already exists for this file (both code-shape and image-shape)
+      // Check if shape already exists for this file
       const existing = editor.getCurrentPageShapes().find(
-        (s) =>
-          (s.type === 'code-shape' || s.type === 'image-shape') &&
+        (s) => ['code-shape', 'image-shape', 'markdown-shape'].includes(s.type) &&
           (s as any).props.filePath === filePath
       )
       if (existing) {
@@ -73,6 +75,13 @@ export function Canvas() {
           x: x - 250,
           y: y - 200,
           props: { filePath, w: 500, h: 400 },
+        })
+      } else if (isMarkdown) {
+        editor.createShape({
+          type: 'markdown-shape',
+          x: x - 300,
+          y: y - 250,
+          props: { filePath, w: 600, h: 500 },
         })
       } else {
         editor.createShape({
