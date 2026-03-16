@@ -1,10 +1,13 @@
 import "./App.css";
 import { useEffect } from "react";
 import { useVaultStore } from "./stores/vaultStore";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { LandingScreen } from "./components/LandingScreen";
 import { ToastContainer } from "./components/Toast";
 
 function App() {
+  useKeyboardShortcuts();
+
   const vaultPath = useVaultStore((s) => s.vaultPath);
   const loadRecentVaults = useVaultStore((s) => s.loadRecentVaults);
 
@@ -31,4 +34,4 @@ function App() {
   );
 }
 
-export default App;
+export default App
