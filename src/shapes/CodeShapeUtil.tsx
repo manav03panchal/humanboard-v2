@@ -66,10 +66,29 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
   const editor = useEditor()
   const file = useFileStore((s) => s.files.get(shape.props.filePath))
   const updateContent = useFileStore((s) => s.updateContent)
-  const themeState = useThemeStore()
+  const zedTheme = useThemeStore((s) => s.zedTheme)
+  const getEditorBackground = useThemeStore((s) => s.getEditorBackground)
+  const getEditorForeground = useThemeStore((s) => s.getEditorForeground)
+  const getGutterBackground = useThemeStore((s) => s.getGutterBackground)
+  const getLineNumberColor = useThemeStore((s) => s.getLineNumberColor)
+  const getActiveLineBackground = useThemeStore((s) => s.getActiveLineBackground)
+  const getBorderColor = useThemeStore((s) => s.getBorderColor)
 
-  const langExt = getLanguageExtension(shape.props.filePath)
-  const cmTheme = useMemo(() => buildCodeMirrorTheme(themeState), [themeState.zedTheme])
+  const langExt = useMemo(
+    () => getLanguageExtension(shape.props.filePath),
+    [shape.props.filePath]
+  )
+  const cmTheme = useMemo(
+    () => buildCodeMirrorTheme({
+      zedTheme,
+      getEditorBackground,
+      getEditorForeground,
+      getGutterBackground,
+      getLineNumberColor,
+      getActiveLineBackground,
+    }),
+    [zedTheme, getEditorBackground, getEditorForeground, getGutterBackground, getLineNumberColor, getActiveLineBackground]
+  )
   const extensions = useMemo(
     () => [...cmTheme, ...(langExt ? [langExt] : [])],
     [cmTheme, langExt]
@@ -103,8 +122,8 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
     return () => el.removeEventListener('wheel', stop)
   }, [])
 
-  const editorBg = themeState.getEditorBackground()
-  const borderColor = themeState.getBorderColor()
+  const editorBg = getEditorBackground()
+  const borderColor = getBorderColor()
 
   if (!file) {
     return (

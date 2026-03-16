@@ -200,7 +200,16 @@ function applyDefaultToDOM() {
 
 // --- Build CodeMirror theme from Zed theme ---
 
-export function buildCodeMirrorTheme(theme: ThemeState): Extension[] {
+interface CodeMirrorThemeInput {
+  zedTheme: ZedTheme | null
+  getEditorBackground: () => string
+  getEditorForeground: () => string
+  getGutterBackground: () => string
+  getLineNumberColor: () => string
+  getActiveLineBackground: () => string
+}
+
+export function buildCodeMirrorTheme(theme: CodeMirrorThemeInput): Extension[] {
   const bg = theme.getEditorBackground()
   const fg = theme.getEditorForeground()
   const gutterBg = theme.getGutterBackground()
