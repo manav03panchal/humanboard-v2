@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { getFileIcon } from '../lib/fileIcons'
 import type { TreeNode } from '../stores/vaultStore'
@@ -83,7 +83,7 @@ export function SidebarTreeView({ entries, searchQuery, onFileClick }: SidebarTr
     )
   }
 
-  const tree = buildTree(entries)
+  const tree = useMemo(() => buildTree(entries), [entries])
 
   return (
     <div style={{ overflow: 'auto', flex: 1 }}>
