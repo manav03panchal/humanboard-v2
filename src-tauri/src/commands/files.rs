@@ -40,6 +40,19 @@ pub fn read_file(vault_root: String, file_path: String) -> Result<String, String
     String::from_utf8(content).map_err(|_| "File is not valid UTF-8".into())
 }
 
+const MAX_BINARY_SIZE: u64 = 50 * 1024 * 1024; // 50MB for binary files
+
+#[tauri::command]
+pub fn read_file_base64(vault_root: String, file_path: String) -> Result<String, String> {
+    let path = validate_path(&vault_root, &file_path)?;
+    let metadata = fs::metadata(&path).map_err(|e| format!("Cannot read {file_path}: {e}"))?;
+    if metadata.len() > MAX_BINARY_SIZE {
+        return Err("File too large (max 50MB)".into());
+    }
+    let content = fs::read(&path).map_err(|e| format!("Cannot read {file_path}: {e}"))?;
+    Ok(STANDARD.encode(&content))
+}
+
 #[tauri::command]
 pub fn write_file(vault_root: String, file_path: String, content: String) -> Result<(), String> {
     let path = validate_path(&vault_root, &file_path)?;

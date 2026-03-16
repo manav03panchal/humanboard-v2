@@ -9,6 +9,7 @@ pub fn run() {
         .manage(commands::watcher::init_watcher_state())
         .invoke_handler(tauri::generate_handler![
             commands::files::read_file,
+            commands::files::read_file_base64,
             commands::files::write_file,
             commands::files::read_dir,
             commands::files::read_file_base64,

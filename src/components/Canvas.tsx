@@ -81,11 +81,14 @@ export function Canvas() {
       if (!editor) return
       const { filePath, language } = (e as CustomEvent).detail
       const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+      const isPdf = ext === 'pdf'
       const isImage = IMAGE_EXTENSIONS.includes(ext)
       const isMarkdown = ext === 'md'
 
       // Check if shape already exists for this file
+      const shapeTypes = ['code-shape', 'pdf-shape']
       const existing = editor.getCurrentPageShapes().find(
+        (s) => shapeTypes.includes(s.type) && (s as any).props.filePath === filePath
         (s) => ['code-shape', 'image-shape', 'markdown-shape'].includes(s.type) &&
           (s as any).props.filePath === filePath
       )
@@ -97,6 +100,12 @@ export function Canvas() {
 
       // Create new shape at center of viewport
       const { x, y } = editor.getViewportPageBounds().center
+      if (isPdf) {
+        editor.createShape({
+          type: 'pdf-shape',
+          x: x - 325,
+          y: y - 400,
+          props: { filePath, w: 650, h: 800 },
       if (isImage) {
         editor.createShape({
           type: 'image-shape',
