@@ -133,27 +133,28 @@ pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result
     thread::spawn(move || {
         let mut reader = BufReader::new(stdout);
         loop {
-            // Read Content-Length header
-            let mut header = String::new();
-            match reader.read_line(&mut header) {
-                Ok(0) | Err(_) => break,
-                _ => {}
-            }
-            if !header.starts_with("Content-Length:") {
-                continue;
-            }
-            let len: usize = header
-                .trim()
-                .strip_prefix("Content-Length:")
-                .and_then(|s| s.trim().parse().ok())
-                .unwrap_or(0);
-            if len == 0 {
-                continue;
+            // Read headers until blank line
+            let mut content_length: Option<usize> = None;
+            loop {
+                let mut header = String::new();
+                match reader.read_line(&mut header) {
+                    Ok(0) | Err(_) => return, // EOF or error
+                    _ => {}
+                }
+                let trimmed = header.trim();
+                if trimmed.is_empty() {
+                    break; // blank line = end of headers
+                }
+                if let Some(len_str) = trimmed.strip_prefix("Content-Length:") {
+                    content_length = len_str.trim().parse().ok();
+                }
+                // Skip other headers (Content-Type, etc.)
             }
 
-            // Read blank line separator
-            let mut blank = String::new();
-            let _ = reader.read_line(&mut blank);
+            let len = match content_length {
+                Some(l) if l > 0 => l,
+                _ => continue,
+            };
 
             // Read JSON body
             let mut body = vec![0u8; len];
@@ -162,6 +163,9 @@ pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result
             }
 
             if let Ok(msg) = String::from_utf8(body) {
+                if msg.contains("publishDiagnostics") {
+                    eprintln!("[LSP RUST] Got publishDiagnostics! len={}", msg.len());
+                }
                 let _ = app_handle.emit(&event_name, msg);
             }
         }

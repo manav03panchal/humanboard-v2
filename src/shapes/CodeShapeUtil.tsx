@@ -89,27 +89,25 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
 
   // --- LSP: get client and create plugin extension ---
   const [lspExt, setLspExt] = useState<Extension[]>([])
+  const lspInitialized = useRef(false)
 
   useEffect(() => {
-    if (!vaultPath || !file) return
+    if (!vaultPath || lspInitialized.current) return
     const serverLang = getServerLanguage(filePath)
     if (!serverLang) return
 
-    let cancelled = false
+    lspInitialized.current = true
 
     getLspClient(serverLang, vaultPath).then((client) => {
-      if (cancelled || !client) return
+      if (!client) {
+        lspInitialized.current = false
+        return
+      }
       const fileUri = `file://${vaultPath}/${filePath}`
       const langId = getLanguageId(filePath) ?? serverLang
-      // client.plugin() returns an Extension with autocomplete, diagnostics,
-      // hover, signature help — everything
-      // client.plugin() returns an Extension with autocomplete, diagnostics,
-      // hover tooltips, signature help — the full IDE experience
       const ext = client.plugin(fileUri, langId)
       setLspExt([ext, lintGutter()])
     })
-
-    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vaultPath, filePath])
 

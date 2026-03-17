@@ -84,6 +84,114 @@ body::-webkit-scrollbar {
   border-radius: 3px;
 }
 
+/* LSP diagnostics styling */
+.cm-diagnostic-error {
+  border-bottom: 2px wavy #e06c75 !important;
+}
+.cm-diagnostic-warning {
+  border-bottom: 2px wavy #e5c07b !important;
+}
+.cm-diagnostic-info {
+  border-bottom: 2px wavy #61afef !important;
+}
+.cm-lint-marker-error {
+  content: "" !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #e06c75 !important;
+  box-shadow: 0 0 6px rgba(224, 108, 117, 0.4) !important;
+}
+.cm-lint-marker-warning {
+  content: "" !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #e5c07b !important;
+  box-shadow: 0 0 6px rgba(229, 192, 123, 0.4) !important;
+}
+.cm-lint-marker-info {
+  content: "" !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #61afef !important;
+}
+.cm-lintRange-error {
+  background: rgba(224, 108, 117, 0.08) !important;
+  text-decoration: wavy underline #e06c75 !important;
+  text-decoration-skip-ink: none !important;
+  text-underline-offset: 3px !important;
+}
+.cm-lintRange-warning {
+  background: rgba(229, 192, 123, 0.08) !important;
+  text-decoration: wavy underline #e5c07b !important;
+  text-decoration-skip-ink: none !important;
+  text-underline-offset: 3px !important;
+}
+.cm-lintRange-info {
+  background: none !important;
+  text-decoration: wavy underline #61afef !important;
+  text-decoration-skip-ink: none !important;
+  text-underline-offset: 3px !important;
+}
+.cm-tooltip-lint {
+  background: #1a1a1a !important;
+  border: 1px solid #333 !important;
+  color: #ccc !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+  max-width: 500px !important;
+  line-height: 1.5 !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+}
+.cm-diagnostic {
+  padding: 4px 0 !important;
+}
+.cm-diagnostic-error {
+  border-left: 3px solid #e06c75 !important;
+  padding-left: 8px !important;
+}
+.cm-diagnostic-warning {
+  border-left: 3px solid #e5c07b !important;
+  padding-left: 8px !important;
+}
+.cm-diagnostic-info {
+  border-left: 3px solid #61afef !important;
+  padding-left: 8px !important;
+}
+.cm-lintPoint::after {
+  border-bottom-color: #e06c75 !important;
+}
+.cm-tooltip-hover {
+  background: #1a1a1a !important;
+  border: 1px solid #333 !important;
+  color: #ccc !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+  max-width: 500px !important;
+  max-height: 300px !important;
+  overflow-y: auto !important;
+}
+.cm-completionIcon {
+  padding-right: 4px !important;
+}
+.cm-tooltip-autocomplete {
+  background: #1a1a1a !important;
+  border: 1px solid #333 !important;
+  border-radius: 6px !important;
+}
+.cm-tooltip-autocomplete > ul > li {
+  color: #ccc !important;
+  padding: 2px 8px !important;
+}
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: #333 !important;
+  color: #fff !important;
+}
+
 /* CodeMirror must scroll within its container */
 .cm-editor {
   height: 100% !important;
@@ -96,6 +204,12 @@ body::-webkit-scrollbar {
 /* All scrollable shape content should contain scroll */
 .shape-scrollable {
   overscroll-behavior: contain;
+}
+
+/* Status bar pulse animation for LSP indexing */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 /* Dot grid pattern */

@@ -4,7 +4,7 @@
  * One LSPClient per language per vault. Each client manages the connection
  * to a language server process spawned by the Rust backend.
  */
-import { LSPClient, type Transport } from '@codemirror/lsp-client'
+import { LSPClient, languageServerExtensions, type Transport } from '@codemirror/lsp-client'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
@@ -15,6 +15,15 @@ const clients = new Map<string, {
   unlisten: UnlistenFn | null
   connecting: Promise<LSPClient> | null
 }>()
+
+// Pending connection promises — prevents duplicate concurrent getLspClient calls
+const pendingConnections = new Map<string, Promise<LSPClient | null>>()
+
+function emitLspStatus(language: string, status: string) {
+  window.dispatchEvent(
+    new CustomEvent('humanboard:lsp-status', { detail: { language, status } })
+  )
+}
 
 function clientKey(language: string, vaultPath: string) {
   return `${language}:${vaultPath}`
@@ -33,6 +42,18 @@ export async function getLspClient(language: string, vaultPath: string): Promise
     if (existing.client.connected) return existing.client
   }
 
+  // If another call is already connecting, wait for it
+  const pending = pendingConnections.get(key)
+  if (pending) return pending
+
+  const promise = doConnect(language, vaultPath, key)
+  pendingConnections.set(key, promise)
+  promise.finally(() => pendingConnections.delete(key))
+  return promise
+}
+
+async function doConnect(language: string, vaultPath: string, key: string): Promise<LSPClient | null> {
+
   // Start the language server via Rust
   let result: { serverId: number; isNew: boolean }
   try {
@@ -45,8 +66,9 @@ export async function getLspClient(language: string, vaultPath: string): Promise
   const { serverId, isNew } = result
 
   // If server already existed and we have a client, return it
-  if (!isNew && existing?.client.connected) {
-    return existing.client
+  const existingEntry = clients.get(key)
+  if (!isNew && existingEntry?.client.connected) {
+    return existingEntry.client
   }
 
   // Create transport that bridges Tauri IPC
@@ -54,7 +76,18 @@ export async function getLspClient(language: string, vaultPath: string): Promise
 
   const transport: Transport = {
     send(message: string) {
-      invoke('lsp_send', { serverId, message }).catch((err) => {
+      let finalMessage = message
+      try {
+        const parsed = JSON.parse(message)
+        // Strip pull diagnostic capability to force rust-analyzer to use push (publishDiagnostics)
+        if (parsed.method === 'initialize' && parsed.params?.capabilities?.textDocument?.diagnostic) {
+          delete parsed.params.capabilities.textDocument.diagnostic
+          finalMessage = JSON.stringify(parsed)
+        }
+        const extra = parsed.method === 'textDocument/didOpen' ? ` uri=${parsed.params?.textDocument?.uri}` : ''
+        console.log(`[LSP] >>> ${parsed.method || 'response'} (id: ${parsed.id ?? 'n/a'})${extra}`)
+      } catch {}
+      invoke('lsp_send', { serverId, message: finalMessage }).catch((err) => {
         console.error('LSP send error:', err)
       })
     },
@@ -69,19 +102,61 @@ export async function getLspClient(language: string, vaultPath: string): Promise
   // Listen for responses from Rust
   const eventName = `lsp_response_${serverId}`
   const unlisten = await listen<string>(eventName, (event) => {
+    // Debug: log diagnostics specifically
+    try {
+      const parsed = JSON.parse(event.payload)
+      if (parsed.method === 'textDocument/publishDiagnostics') {
+        console.log(`[LSP] 🔴 DIAGNOSTICS for ${parsed.params?.uri}: ${parsed.params?.diagnostics?.length} issues`, parsed.params?.diagnostics?.slice(0, 2))
+      }
+    } catch {}
     for (const handler of handlers) {
       handler(event.payload)
     }
   })
 
-  // Create LSPClient
+  // Create LSPClient with all extensions (diagnostics, autocomplete, hover, etc.)
+  // Add workDoneProgress capability so rust-analyzer sends indexing progress
+  const progressExtension = {
+    clientCapabilities: {
+      window: {
+        workDoneProgress: true,
+      },
+      textDocument: {
+        // IMPORTANT: disable pull diagnostics — force rust-analyzer to use
+        // publishDiagnostics (push) which serverDiagnostics() handles
+        diagnostic: undefined,
+      },
+    },
+    notificationHandlers: {
+      '$/progress': (_client: LSPClient, params: any) => {
+        const value = params?.value
+        if (!value) return true
+        if (value.kind === 'begin') {
+          emitLspStatus(language, value.title || 'indexing')
+        } else if (value.kind === 'report') {
+          const msg = value.message ?? ''
+          const pct = value.percentage != null ? ` ${value.percentage}%` : ''
+          emitLspStatus(language, `${msg}${pct}`.trim() || 'indexing')
+        } else if (value.kind === 'end') {
+          emitLspStatus(language, 'ready')
+        }
+        return true
+      },
+    },
+  }
+
   const client = new LSPClient({
     rootUri: `file://${vaultPath}`,
+    extensions: [...languageServerExtensions(), progressExtension],
   })
+
+  console.log(`[LSP] Connecting ${language} client to server ${serverId}...`)
+  emitLspStatus(language, 'connecting')
 
   const connectPromise = (async () => {
     client.connect(transport)
     await client.initializing
+    console.log(`[LSP] ${language} client initialized!`)
     return client
   })()
 
@@ -89,12 +164,13 @@ export async function getLspClient(language: string, vaultPath: string): Promise
 
   try {
     await connectPromise
-    // Update connecting state
     const entry = clients.get(key)
     if (entry) entry.connecting = null
+    emitLspStatus(language, 'indexing')
     return client
   } catch (err) {
     console.error('LSP: initialization failed for', language, err)
+    emitLspStatus(language, 'error')
     unlisten()
     clients.delete(key)
     return null

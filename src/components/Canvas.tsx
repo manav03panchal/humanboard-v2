@@ -53,35 +53,74 @@ function findNonOverlappingPosition(editor: Editor, baseX: number, baseY: number
   return { x, y }
 }
 
-function ZoomIndicator() {
+function StatusBar() {
   const [zoom, setZoom] = useState(100)
+  const [lspStatuses, setLspStatuses] = useState<Map<string, string>>(new Map())
 
   useEffect(() => {
-    const handler = (e: Event) => {
+    const zoomHandler = (e: Event) => {
       setZoom(Math.round((e as CustomEvent).detail * 100))
     }
-    window.addEventListener('humanboard:zoom-changed', handler)
-    return () => window.removeEventListener('humanboard:zoom-changed', handler)
+    const lspHandler = (e: Event) => {
+      const { language, status } = (e as CustomEvent).detail
+      setLspStatuses((prev) => {
+        const next = new Map(prev)
+        next.set(language, status)
+        return next
+      })
+    }
+    window.addEventListener('humanboard:zoom-changed', zoomHandler)
+    window.addEventListener('humanboard:lsp-status', lspHandler)
+    return () => {
+      window.removeEventListener('humanboard:zoom-changed', zoomHandler)
+      window.removeEventListener('humanboard:lsp-status', lspHandler)
+    }
   }, [])
 
   return (
     <div
       style={{
         position: 'fixed',
-        bottom: 12,
-        right: 12,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 24,
         zIndex: 9998,
-        padding: '4px 10px',
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        border: '1px solid #1a1a1a',
-        borderRadius: 6,
-        color: '#666',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 12,
+        padding: '0 12px',
+        backgroundColor: '#0a0a0a',
+        borderTop: '1px solid #1a1a1a',
         fontSize: 11,
         fontFamily: '"Iosevka Nerd Font Mono", "Iosevka", monospace',
+        color: '#555',
         userSelect: 'none',
       }}
     >
-      {zoom}%
+      {Array.from(lspStatuses.entries()).map(([lang, status]) => (
+        <span key={lang} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              backgroundColor:
+                status === 'ready' ? '#98c379' :
+                status === 'error' ? '#e06c75' :
+                status === 'connecting' ? '#555' :
+                '#e5c07b',
+              display: 'inline-block',
+              animation: status !== 'ready' && status !== 'error' ? 'pulse 1.5s infinite' : 'none',
+            }}
+          />
+          <span style={{ color: status === 'ready' ? '#555' : '#888' }}>
+            {lang}{status !== 'ready' ? `: ${status}` : ''}
+          </span>
+        </span>
+      ))}
+      <span>{zoom}%</span>
     </div>
   )
 }
@@ -475,7 +514,7 @@ export function Canvas() {
         options={{ maxPages: 1 }}
         inferDarkMode
       />
-      <ZoomIndicator />
+      <StatusBar />
     </div>
   )
 }
