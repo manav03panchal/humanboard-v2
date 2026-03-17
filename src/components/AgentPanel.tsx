@@ -48,17 +48,16 @@ function getToolIcon(content: string) {
 }
 
 export function AgentPanel({
+  shapeId,
   iframeRef,
   onNavigate,
 }: {
+  shapeId: string
   iframeRef: React.RefObject<HTMLIFrameElement | null>
   onNavigate: (url: string) => void
 }) {
-  const status = useAgentStore((s) => s.status)
-  const messages = useAgentStore((s) => s.messages)
-  const currentAction = useAgentStore((s) => s.currentAction)
-  const iteration = useAgentStore((s) => s.iteration)
-  const maxIterations = useAgentStore((s) => s.maxIterations)
+  const shapeState = useAgentStore((s) => s.getShapeState(shapeId))
+  const { status, messages, currentAction, iteration, maxIterations } = shapeState
   const apiKey = useAgentStore((s) => s.apiKey)
 
   const [input, setInput] = useState('')
@@ -75,16 +74,16 @@ export function AgentPanel({
 
     setInput('')
     const executor = createIframeToolExecutor(iframeRef, onNavigate)
-    useAgentStore.getState().clearMessages()
-    runAgentLoop(trimmed, executor)
-  }, [input, status, iframeRef, onNavigate])
+    useAgentStore.getState().clearShapeMessages(shapeId)
+    runAgentLoop(shapeId, trimmed, executor)
+  }, [input, status, iframeRef, onNavigate, shapeId])
 
   const handleStop = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation()
-      stopAgent()
+      stopAgent(shapeId)
     },
-    [],
+    [shapeId],
   )
 
   const isRunning = status === 'running'

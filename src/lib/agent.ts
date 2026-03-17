@@ -19,26 +19,29 @@ Important guidelines:
 - When the task is complete, provide a clear summary of what was accomplished`
 
 export async function runAgentLoop(
+  shapeId: string,
   prompt: string,
   toolExecutor: ToolExecutor,
 ): Promise<void> {
   const store = useAgentStore.getState()
-  const { apiKey, model, maxIterations } = store
+  const { apiKey, model } = store
+  const shapeState = store.getShapeState(shapeId)
+  const { maxIterations } = shapeState
 
   if (!apiKey) {
-    store.addMessage({
+    store.addShapeMessage(shapeId, {
       role: 'error',
       content: 'No API key set. Please add your Anthropic API key in settings.',
     })
-    store.setStatus('error')
+    store.setShapeStatus(shapeId, 'error')
     return
   }
 
   const abortController = new AbortController()
-  store.setAbortController(abortController)
-  store.setStatus('running')
-  store.setIteration(0)
-  store.addMessage({ role: 'user', content: prompt })
+  store.setShapeAbortController(shapeId, abortController)
+  store.setShapeStatus(shapeId, 'running')
+  store.setShapeIteration(shapeId, 0)
+  store.addShapeMessage(shapeId, { role: 'user', content: prompt })
 
   let client: Anthropic
   try {
@@ -47,11 +50,11 @@ export async function runAgentLoop(
       dangerouslyAllowBrowser: true,
     })
   } catch (err) {
-    store.addMessage({
+    store.addShapeMessage(shapeId, {
       role: 'error',
       content: `Failed to initialize API client: ${err instanceof Error ? err.message : String(err)}`,
     })
-    store.setStatus('error')
+    store.setShapeStatus(shapeId, 'error')
     return
   }
 
@@ -64,13 +67,13 @@ export async function runAgentLoop(
   try {
     while (iteration < maxIterations) {
       if (abortController.signal.aborted) {
-        store.addMessage({ role: 'status', content: 'Agent stopped by user.' })
-        store.setStatus('stopped')
+        store.addShapeMessage(shapeId, { role: 'status', content: 'Agent stopped by user.' })
+        store.setShapeStatus(shapeId, 'stopped')
         return
       }
 
       iteration++
-      store.setIteration(iteration)
+      store.setShapeIteration(shapeId, iteration)
 
       const stream = client.messages.stream(
         {
@@ -88,7 +91,8 @@ export async function runAgentLoop(
       stream.on('text', (delta) => {
         currentText += delta
         // Update the last assistant message in real-time
-        const msgs = useAgentStore.getState().messages
+        const current = useAgentStore.getState().getShapeState(shapeId)
+        const msgs = current.messages
         const lastMsg = msgs[msgs.length - 1]
         if (lastMsg?.role === 'assistant') {
           // Update in place for streaming effect
@@ -97,9 +101,9 @@ export async function runAgentLoop(
             ...lastMsg,
             content: currentText,
           }
-          useAgentStore.setState({ messages: updated })
+          useAgentStore.getState().updateShapeMessages(shapeId, updated)
         } else {
-          store.addMessage({ role: 'assistant', content: currentText })
+          store.addShapeMessage(shapeId, { role: 'assistant', content: currentText })
         }
       })
 
@@ -112,8 +116,8 @@ export async function runAgentLoop(
       if (textBlocks.length > 0) {
         const finalText = textBlocks.map((b) => b.text).join('')
         if (finalText && finalText !== currentText) {
-          // Update to final text
-          const msgs = useAgentStore.getState().messages
+          const current = useAgentStore.getState().getShapeState(shapeId)
+          const msgs = current.messages
           const lastMsg = msgs[msgs.length - 1]
           if (lastMsg?.role === 'assistant') {
             const updated = [...msgs]
@@ -121,20 +125,20 @@ export async function runAgentLoop(
               ...lastMsg,
               content: finalText,
             }
-            useAgentStore.setState({ messages: updated })
+            useAgentStore.getState().updateShapeMessages(shapeId, updated)
           }
         }
       }
 
       if (message.stop_reason === 'end_turn') {
-        store.setStatus('idle')
-        store.setCurrentAction(null)
+        store.setShapeStatus(shapeId, 'idle')
+        store.setShapeCurrentAction(shapeId, null)
         return
       }
 
       if (message.stop_reason !== 'tool_use') {
-        store.setStatus('idle')
-        store.setCurrentAction(null)
+        store.setShapeStatus(shapeId, 'idle')
+        store.setShapeCurrentAction(shapeId, null)
         return
       }
 
@@ -151,8 +155,8 @@ export async function runAgentLoop(
           toolUse.name,
           toolUse.input as Record<string, unknown>,
         )
-        store.setCurrentAction(actionLabel)
-        store.addMessage({ role: 'tool_call', content: actionLabel })
+        store.setShapeCurrentAction(shapeId, actionLabel)
+        store.addShapeMessage(shapeId, { role: 'tool_call', content: actionLabel })
 
         try {
           const result = await executeToolCall(
@@ -165,7 +169,7 @@ export async function runAgentLoop(
             tool_use_id: toolUse.id,
             content: result,
           })
-          store.addMessage({ role: 'tool_result', content: result })
+          store.addShapeMessage(shapeId, { role: 'tool_result', content: result })
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : String(err)
           toolResults.push({
@@ -174,7 +178,7 @@ export async function runAgentLoop(
             content: errorMsg,
             is_error: true,
           })
-          store.addMessage({
+          store.addShapeMessage(shapeId, {
             role: 'error',
             content: `Tool error: ${errorMsg}`,
           })
@@ -182,35 +186,35 @@ export async function runAgentLoop(
       }
 
       messages.push({ role: 'user', content: toolResults })
-      store.setCurrentAction(null)
+      store.setShapeCurrentAction(shapeId, null)
     }
 
     // Max iterations reached
-    store.addMessage({
+    store.addShapeMessage(shapeId, {
       role: 'status',
       content: `Reached maximum iterations (${maxIterations}). Agent stopped.`,
     })
-    store.setStatus('max_iterations')
+    store.setShapeStatus(shapeId, 'max_iterations')
   } catch (err) {
     if (abortController.signal.aborted) {
-      store.addMessage({ role: 'status', content: 'Agent stopped by user.' })
-      store.setStatus('stopped')
+      store.addShapeMessage(shapeId, { role: 'status', content: 'Agent stopped by user.' })
+      store.setShapeStatus(shapeId, 'stopped')
       return
     }
 
     const errorMessage = getErrorMessage(err)
-    store.addMessage({ role: 'error', content: errorMessage })
-    store.setStatus('error')
+    store.addShapeMessage(shapeId, { role: 'error', content: errorMessage })
+    store.setShapeStatus(shapeId, 'error')
   } finally {
-    store.setCurrentAction(null)
-    store.setAbortController(null)
+    store.setShapeCurrentAction(shapeId, null)
+    store.setShapeAbortController(shapeId, null)
   }
 }
 
-export function stopAgent(): void {
-  const { abortController } = useAgentStore.getState()
-  if (abortController) {
-    abortController.abort()
+export function stopAgent(shapeId: string): void {
+  const shapeState = useAgentStore.getState().getShapeState(shapeId)
+  if (shapeState.abortController) {
+    shapeState.abortController.abort()
   }
 }
 
