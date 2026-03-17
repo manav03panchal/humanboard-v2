@@ -81,17 +81,19 @@ export function QuickOpen({ open, onClose }: { open: boolean; onClose: () => voi
   }, [selectedIndex])
 
   const openSelected = useCallback(
-    (index: number) => {
+    async (index: number) => {
       const item = results[index]
       if (!item) return
       const filePath = item.path
       const language = getLanguageName(filePath)
+      onClose()
+      // Small delay to ensure QuickOpen overlay is gone
+      await new Promise((r) => setTimeout(r, 100))
       window.dispatchEvent(
         new CustomEvent('humanboard:open-file', {
-          detail: { filePath, language },
+          detail: { filePath, language, animate: true },
         })
       )
-      onClose()
     },
     [results, onClose]
   )

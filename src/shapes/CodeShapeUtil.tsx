@@ -107,6 +107,8 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
       const langId = getLanguageId(filePath) ?? serverLang
       const ext = client.plugin(fileUri, langId)
       setLspExt([ext, lintGutter()])
+    }).catch(() => {
+      lspInitialized.current = false
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vaultPath, filePath])

@@ -328,6 +328,26 @@ export function Canvas() {
       if ('language' in config) props.language = config.language
 
       editor.createShape({ type: config.type, x, y, props })
+      // If opened from QuickOpen (animate=true), zoom to the new shape
+      if (animate) {
+        // Small delay to let the shape render
+        setTimeout(() => {
+          const shapes = editor.getCurrentPageShapes()
+          const created = shapes.find(
+            (s) => ALL_SHAPE_TYPES.includes(s.type) && (s as any).props.filePath === filePath
+          )
+          if (created) {
+            editor.select(created.id)
+            const bounds = editor.getShapePageBounds(created)
+            if (bounds) {
+              editor.zoomToBounds(bounds, {
+                animation: { duration: 400 },
+                inset: 100,
+              })
+            }
+          }
+        }, 100)
+      }
     }
 
     window.addEventListener('humanboard:open-file', handleOpenFile)

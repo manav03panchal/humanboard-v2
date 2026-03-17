@@ -6,6 +6,7 @@
  */
 import { LSPClient, languageServerExtensions, type Transport } from '@codemirror/lsp-client'
 import { invoke } from '@tauri-apps/api/core'
+import { useDiagnosticStore } from '../stores/diagnosticStore'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 // Map: "language:vaultPath" -> { client, serverId, unlisten }
@@ -59,7 +60,25 @@ async function doConnect(language: string, vaultPath: string, key: string): Prom
   try {
     result = await invoke<{ serverId: number; isNew: boolean }>('lsp_start', { language, vaultPath })
   } catch (err) {
-    console.warn(`LSP: failed to start ${language} server:`, err)
+    const msg = String(err)
+    const installHints: Record<string, string> = {
+      typescript: 'bun add -g typescript-language-server typescript',
+      rust: 'rustup component add rust-analyzer',
+      python: 'pip install pyright',
+      css: 'bun add -g vscode-langservers-extracted',
+      html: 'bun add -g vscode-langservers-extracted',
+      json: 'bun add -g vscode-langservers-extracted',
+    }
+    const hint = installHints[language]
+    const toastMsg = hint
+      ? `${language} LSP not found. Install: ${hint}`
+      : `${language} LSP failed: ${msg}`
+    emitLspStatus(language, 'error')
+    // Import dynamically to avoid circular deps
+    import('../components/Toast').then(({ useToastStore }) => {
+      useToastStore.getState().addToast(toastMsg, 'error')
+    })
+    console.warn(`LSP: failed to start ${language} server:`, msg)
     return null
   }
 
@@ -102,11 +121,13 @@ async function doConnect(language: string, vaultPath: string, key: string): Prom
   // Listen for responses from Rust
   const eventName = `lsp_response_${serverId}`
   const unlisten = await listen<string>(eventName, (event) => {
-    // Debug: log diagnostics specifically
     try {
       const parsed = JSON.parse(event.payload)
-      if (parsed.method === 'textDocument/publishDiagnostics') {
-        console.log(`[LSP] 🔴 DIAGNOSTICS for ${parsed.params?.uri}: ${parsed.params?.diagnostics?.length} issues`, parsed.params?.diagnostics?.slice(0, 2))
+      if (parsed.method === 'textDocument/publishDiagnostics' && parsed.params) {
+        const diags = parsed.params.diagnostics ?? []
+        const errors = diags.filter((d: any) => d.severity === 1).length
+        const warnings = diags.filter((d: any) => d.severity === 2).length
+        useDiagnosticStore.getState().setDiagnostics(parsed.params.uri, errors, warnings)
       }
     } catch {}
     for (const handler of handlers) {
@@ -171,6 +192,9 @@ async function doConnect(language: string, vaultPath: string, key: string): Prom
   } catch (err) {
     console.error('LSP: initialization failed for', language, err)
     emitLspStatus(language, 'error')
+    import('../components/Toast').then(({ useToastStore }) => {
+      useToastStore.getState().addToast(`${language} LSP crashed during initialization`, 'error')
+    })
     unlisten()
     clients.delete(key)
     return null

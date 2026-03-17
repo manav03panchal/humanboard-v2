@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { getFileIcon } from '../lib/fileIcons'
 import { getLanguageName } from '../lib/language'
+import { useDiagnosticStore } from '../stores/diagnosticStore'
 import type { TreeNode } from '../stores/vaultStore'
 import type { ContextMenuState } from './SidebarContextMenu'
 
@@ -175,6 +176,12 @@ function TreeFileItem({
   onContextMenu?: (state: ContextMenuState) => void
 }) {
   const Icon = getFileIcon(path, false)
+  const diag = useDiagnosticStore((s) => {
+    for (const [uri, d] of s.files) {
+      if (uri.endsWith('/' + path) || uri.endsWith(path)) return d
+    }
+    return undefined
+  })
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
@@ -238,6 +245,16 @@ function TreeFileItem({
       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {name}
       </span>
+      {diag && (
+        <span style={{ display: 'flex', gap: 3, flexShrink: 0, alignItems: 'center' }}>
+          {diag.errors > 0 && (
+            <span style={{ fontSize: 10, color: '#e06c75', fontWeight: 600 }}>{diag.errors}</span>
+          )}
+          {diag.warnings > 0 && (
+            <span style={{ fontSize: 10, color: '#e5c07b', fontWeight: 600 }}>{diag.warnings}</span>
+          )}
+        </span>
+      )}
     </button>
   )
 }
