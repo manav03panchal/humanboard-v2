@@ -26,6 +26,12 @@ pub fn run() {
             commands::lsp::lsp_start,
             commands::lsp::lsp_send,
             commands::lsp::lsp_stop,
+            commands::webview::create_webview,
+            commands::webview::close_webview,
+            commands::webview::navigate_webview,
+            commands::webview::webview_go_back,
+            commands::webview::webview_go_forward,
+            commands::webview::webview_reload,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
