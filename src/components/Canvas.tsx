@@ -268,6 +268,26 @@ export function Canvas() {
     return () => window.removeEventListener('keydown', handleGraphKeyDown)
   }, [])
 
+  // Cmd+Shift+B shortcut to create browser view
+  useEffect(() => {
+    const handleBrowserKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'U' || e.key === 'u')) {
+        e.preventDefault()
+        const editor = editorRef.current
+        if (!editor) return
+        const { x, y } = editor.getViewportPageBounds().center
+        editor.createShape({
+          type: 'browser-shape',
+          x: x - 400,
+          y: y - 300,
+          props: { w: 800, h: 600, url: 'https://google.com' },
+        })
+      }
+    }
+    window.addEventListener('keydown', handleBrowserKeyDown)
+    return () => window.removeEventListener('keydown', handleBrowserKeyDown)
+  }, [])
+
   // Expose editor ref for sidebar drag-drop
   useEffect(() => {
     (window as any).__humanboard_editor = editorRef

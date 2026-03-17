@@ -63,13 +63,13 @@ function NoteShapeComponent({ shape }: { shape: NoteShape }) {
   const getBorderColor = useThemeStore((s) => s.getBorderColor)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  // Sync shape content into the contenteditable div
+  // Sync shape content into the contenteditable div (only when NOT focused)
   useEffect(() => {
     const el = contentRef.current
-    if (el && !isEditing && el.textContent !== shape.props.content) {
+    if (el && document.activeElement !== el && el.textContent !== shape.props.content) {
       el.textContent = shape.props.content
     }
-  }, [shape.props.content, isEditing])
+  }, [shape.props.content])
 
   // Focus the contenteditable when entering edit mode
   useEffect(() => {
@@ -105,15 +105,7 @@ function NoteShapeComponent({ shape }: { shape: NoteShape }) {
     [editor, shape.id, isEditing],
   )
 
-  const handleInput = useCallback(() => {
-    const el = contentRef.current
-    if (!el) return
-    editor.updateShape<NoteShape>({
-      id: shape.id,
-      type: 'note-shape',
-      props: { content: el.textContent ?? '' },
-    })
-  }, [editor, shape.id])
+
 
   const surfaceBg = getSurfaceBackground()
   const fg = getEditorForeground()
@@ -138,11 +130,17 @@ function NoteShapeComponent({ shape }: { shape: NoteShape }) {
         label="Note"
         icon={StickyNote}
       />
-      <div
-        ref={contentRef}
-        contentEditable={isEditing}
-        suppressContentEditableWarning
-        onInput={handleInput}
+      <textarea
+        ref={contentRef as any}
+        value={shape.props.content}
+        onChange={(e) => {
+          editor.updateShape<NoteShape>({
+            id: shape.id,
+            type: 'note-shape',
+            props: { content: e.target.value },
+          })
+        }}
+        readOnly={!isEditing}
         onPointerDown={handleContentPointerDown}
         onTouchStart={stopEvent}
         onTouchEnd={stopEvent}
@@ -172,10 +170,13 @@ function NoteShapeComponent({ shape }: { shape: NoteShape }) {
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           cursor: isEditing ? 'text' : 'default',
+          background: 'transparent',
+          border: 'none',
+          resize: 'none',
+          width: '100%',
         }}
-      >
-        {shape.props.content}
-      </div>
+        placeholder="Type your note..."
+      />
     </HTMLContainer>
   )
 }
