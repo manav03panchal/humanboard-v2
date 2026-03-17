@@ -9,8 +9,8 @@ import {
 } from 'tldraw'
 import { useCallback, useState, useRef, useEffect } from 'react'
 import { Globe, ArrowLeft, ArrowRight, RotateCw, X, Bot } from 'lucide-react'
+import { invoke } from '@tauri-apps/api/core'
 import { Webview } from '@tauri-apps/api/webview'
-import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalPosition, LogicalSize } from '@tauri-apps/api/dpi'
 import { AgentPanel } from '../components/AgentPanel'
 import { SettingsButton, SettingsDialog } from '../components/SettingsDialog'
@@ -121,10 +121,9 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
   const [agentOpen, setAgentOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const webviewRef = useRef<Webview | null>(null)
   const visibleRef = useRef(true)
-  const currentUrlRef = useRef(shape.props.url)
   const creatingRef = useRef(false)
+  const createdRef = useRef(false)
 
   // Load agent settings on mount
   useEffect(() => {
@@ -136,9 +135,10 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
     setUrlInput(shape.props.url)
   }, [shape.props.url])
 
-  // Create/destroy native webview
+  const label = webviewLabel(shape.id)
+
+  // Create/destroy native webview via Tauri commands
   useEffect(() => {
-    const label = webviewLabel(shape.id)
     let destroyed = false
 
     async function createNativeWebview() {
@@ -146,19 +146,13 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
       creatingRef.current = true
 
       try {
-        // Close existing webview if any
-        if (webviewRef.current) {
-          try { await webviewRef.current.close() } catch { /* ignore */ }
-          webviewRef.current = null
-        }
-
         if (destroyed) return
 
         const { x, y, width, height } = computeWebviewBounds(editor, shape)
         const visible = isShapeVisible(editor, shape)
 
-        const appWindow = getCurrentWindow()
-        const wv = new Webview(appWindow, label, {
+        await invoke('create_webview', {
+          label,
           url: shape.props.url,
           x: visible ? x : -10000,
           y: visible ? y : -10000,
@@ -168,12 +162,11 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
 
         if (destroyed) {
           // Component unmounted during creation
-          try { await wv.close() } catch { /* ignore */ }
+          await invoke('close_webview', { label }).catch(() => {})
           return
         }
 
-        webviewRef.current = wv
-        currentUrlRef.current = shape.props.url
+        createdRef.current = true
         visibleRef.current = visible
       } catch (err) {
         console.error('Failed to create browser webview:', err)
@@ -186,10 +179,9 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
 
     return () => {
       destroyed = true
-      const wv = webviewRef.current
-      if (wv) {
-        wv.close().catch(() => { /* ignore */ })
-        webviewRef.current = null
+      if (createdRef.current) {
+        invoke('close_webview', { label }).catch(() => {})
+        createdRef.current = false
       }
       // Clean up per-shape agent state (stops running agent if any)
       useAgentStore.getState().removeShape(shape.id)
@@ -198,55 +190,13 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shape.id])
 
-  // Handle URL changes — destroy and recreate webview with new URL
+  // Handle URL changes — navigate the existing webview
   useEffect(() => {
-    if (shape.props.url === currentUrlRef.current) return
-    if (!webviewRef.current) return
+    if (!createdRef.current) return
 
-    const label = webviewLabel(shape.id)
-    let destroyed = false
-
-    async function recreateForUrl() {
-      if (creatingRef.current) return
-      creatingRef.current = true
-
-      try {
-        if (webviewRef.current) {
-          try { await webviewRef.current.close() } catch { /* ignore */ }
-          webviewRef.current = null
-        }
-
-        if (destroyed) return
-
-        const { x, y, width, height } = computeWebviewBounds(editor, shape)
-        const visible = isShapeVisible(editor, shape)
-        const appWindow = getCurrentWindow()
-        const wv = new Webview(appWindow, label, {
-          url: shape.props.url,
-          x: visible ? x : -10000,
-          y: visible ? y : -10000,
-          width,
-          height,
-        })
-
-        if (destroyed) {
-          try { await wv.close() } catch { /* ignore */ }
-          return
-        }
-
-        webviewRef.current = wv
-        currentUrlRef.current = shape.props.url
-        visibleRef.current = visible
-      } catch (err) {
-        console.error('Failed to recreate browser webview:', err)
-      } finally {
-        creatingRef.current = false
-      }
-    }
-
-    recreateForUrl()
-
-    return () => { destroyed = true }
+    invoke('navigate_webview', { label, url: shape.props.url }).catch((err) => {
+      console.error('Failed to navigate webview:', err)
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shape.props.url])
 
@@ -255,8 +205,7 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
     let rafId = 0
 
     function syncPosition() {
-      const currentWv = webviewRef.current
-      if (!currentWv) return
+      if (!createdRef.current) return
 
       // Get latest shape data from the store
       const latestShape = editor.getShape(shape.id) as BrowserShape | undefined
@@ -265,21 +214,26 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
       const visible = isShapeVisible(editor, latestShape)
       const { x, y, width, height } = computeWebviewBounds(editor, latestShape)
 
-      if (!visible) {
-        if (visibleRef.current) {
-          visibleRef.current = false
-          currentWv.hide().catch(() => { /* ignore */ })
+      // Use Webview.getByLabel for position sync (JS API)
+      Webview.getByLabel(label).then((wv) => {
+        if (!wv) return
+
+        if (!visible) {
+          if (visibleRef.current) {
+            visibleRef.current = false
+            wv.hide().catch(() => {})
+          }
+          return
         }
-        return
-      }
 
-      if (!visibleRef.current) {
-        visibleRef.current = true
-        currentWv.show().catch(() => { /* ignore */ })
-      }
+        if (!visibleRef.current) {
+          visibleRef.current = true
+          wv.show().catch(() => {})
+        }
 
-      currentWv.setPosition(new LogicalPosition(x, y)).catch(() => { /* ignore */ })
-      currentWv.setSize(new LogicalSize(width, height)).catch(() => { /* ignore */ })
+        wv.setPosition(new LogicalPosition(x, y)).catch(() => {})
+        wv.setSize(new LogicalSize(width, height)).catch(() => {})
+      }).catch(() => {})
     }
 
     function scheduleSync() {
@@ -298,7 +252,7 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
       cancelAnimationFrame(rafId)
       clearTimeout(timeout)
     }
-  }, [editor, shape.id])
+  }, [editor, shape.id, label])
 
   const navigateTo = useCallback(
     (url: string) => {
@@ -321,6 +275,36 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
       }
     },
     [navigateTo, urlInput],
+  )
+
+  const handleBack = useCallback(
+    (e: React.PointerEvent) => {
+      e.stopPropagation()
+      invoke('webview_go_back', { label }).catch((err) => {
+        console.error('Back navigation failed:', err)
+      })
+    },
+    [label],
+  )
+
+  const handleForward = useCallback(
+    (e: React.PointerEvent) => {
+      e.stopPropagation()
+      invoke('webview_go_forward', { label }).catch((err) => {
+        console.error('Forward navigation failed:', err)
+      })
+    },
+    [label],
+  )
+
+  const handleRefresh = useCallback(
+    (e: React.PointerEvent) => {
+      e.stopPropagation()
+      invoke('webview_reload', { label }).catch((err) => {
+        console.error('Reload failed:', err)
+      })
+    },
+    [label],
   )
 
   const handleClose = useCallback(
@@ -362,13 +346,13 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
         }}
       >
         <Globe size={14} strokeWidth={1.5} color="#666" style={{ flexShrink: 0 }} />
-        <button onPointerDown={(e) => { e.stopPropagation() }} style={iconButtonStyle} title="Back">
+        <button onPointerDown={handleBack} style={iconButtonStyle} title="Back">
           <ArrowLeft size={12} strokeWidth={1.5} />
         </button>
-        <button onPointerDown={(e) => { e.stopPropagation() }} style={iconButtonStyle} title="Forward">
+        <button onPointerDown={handleForward} style={iconButtonStyle} title="Forward">
           <ArrowRight size={12} strokeWidth={1.5} />
         </button>
-        <button onPointerDown={(e) => { e.stopPropagation() }} style={iconButtonStyle} title="Refresh">
+        <button onPointerDown={handleRefresh} style={iconButtonStyle} title="Refresh">
           <RotateCw size={12} strokeWidth={1.5} />
         </button>
         <input
