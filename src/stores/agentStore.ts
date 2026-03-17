@@ -10,30 +10,49 @@ export interface AgentMessage {
   timestamp: number
 }
 
-interface AgentStore {
-  // Settings
-  apiKey: string | null
-  model: AgentModel
-  setApiKey: (key: string | null) => void
-  setModel: (model: AgentModel) => void
-  loadSettings: () => void
-
-  // Agent state
+/** Per-shape runtime state for an agent session */
+export interface ShapeAgentState {
   status: AgentStatus
   messages: AgentMessage[]
   currentAction: string | null
   iteration: number
   maxIterations: number
   abortController: AbortController | null
+}
 
-  // Actions
-  setStatus: (status: AgentStatus) => void
-  addMessage: (msg: Omit<AgentMessage, 'timestamp'>) => void
-  setCurrentAction: (action: string | null) => void
-  setIteration: (n: number) => void
-  setAbortController: (controller: AbortController | null) => void
-  clearMessages: () => void
-  reset: () => void
+function createDefaultShapeState(): ShapeAgentState {
+  return {
+    status: 'idle',
+    messages: [],
+    currentAction: null,
+    iteration: 0,
+    maxIterations: 20,
+    abortController: null,
+  }
+}
+
+interface AgentStore {
+  // Global settings (shared across all shapes)
+  apiKey: string | null
+  model: AgentModel
+  setApiKey: (key: string | null) => void
+  setModel: (model: AgentModel) => void
+  loadSettings: () => void
+
+  // Per-shape agent state
+  shapes: Map<string, ShapeAgentState>
+
+  // Per-shape accessors
+  getShapeState: (shapeId: string) => ShapeAgentState
+  setShapeStatus: (shapeId: string, status: AgentStatus) => void
+  addShapeMessage: (shapeId: string, msg: Omit<AgentMessage, 'timestamp'>) => void
+  setShapeCurrentAction: (shapeId: string, action: string | null) => void
+  setShapeIteration: (shapeId: string, n: number) => void
+  setShapeAbortController: (shapeId: string, controller: AbortController | null) => void
+  clearShapeMessages: (shapeId: string) => void
+  resetShape: (shapeId: string) => void
+  removeShape: (shapeId: string) => void
+  updateShapeMessages: (shapeId: string, messages: AgentMessage[]) => void
 }
 
 const SETTINGS_KEY = 'humanboard_agent_settings'
@@ -41,12 +60,7 @@ const SETTINGS_KEY = 'humanboard_agent_settings'
 export const useAgentStore = create<AgentStore>((set, get) => ({
   apiKey: null,
   model: 'claude-sonnet-4-0',
-  status: 'idle',
-  messages: [],
-  currentAction: null,
-  iteration: 0,
-  maxIterations: 20,
-  abortController: null,
+  shapes: new Map(),
 
   setApiKey: (key) => {
     set({ apiKey: key })
@@ -73,29 +87,101 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     }
   },
 
-  setStatus: (status) => set({ status }),
+  getShapeState: (shapeId) => {
+    const shapes = get().shapes
+    return shapes.get(shapeId) ?? createDefaultShapeState()
+  },
 
-  addMessage: (msg) =>
-    set((state) => ({
-      messages: [...state.messages, { ...msg, timestamp: Date.now() }],
-    })),
+  setShapeStatus: (shapeId, status) => {
+    set((state) => {
+      const shapes = new Map(state.shapes)
+      const current = shapes.get(shapeId) ?? createDefaultShapeState()
+      shapes.set(shapeId, { ...current, status })
+      return { shapes }
+    })
+  },
 
-  setCurrentAction: (action) => set({ currentAction: action }),
+  addShapeMessage: (shapeId, msg) => {
+    set((state) => {
+      const shapes = new Map(state.shapes)
+      const current = shapes.get(shapeId) ?? createDefaultShapeState()
+      shapes.set(shapeId, {
+        ...current,
+        messages: [...current.messages, { ...msg, timestamp: Date.now() }],
+      })
+      return { shapes }
+    })
+  },
 
-  setIteration: (n) => set({ iteration: n }),
+  setShapeCurrentAction: (shapeId, action) => {
+    set((state) => {
+      const shapes = new Map(state.shapes)
+      const current = shapes.get(shapeId) ?? createDefaultShapeState()
+      shapes.set(shapeId, { ...current, currentAction: action })
+      return { shapes }
+    })
+  },
 
-  setAbortController: (controller) => set({ abortController: controller }),
+  setShapeIteration: (shapeId, n) => {
+    set((state) => {
+      const shapes = new Map(state.shapes)
+      const current = shapes.get(shapeId) ?? createDefaultShapeState()
+      shapes.set(shapeId, { ...current, iteration: n })
+      return { shapes }
+    })
+  },
 
-  clearMessages: () => set({ messages: [], iteration: 0, currentAction: null }),
+  setShapeAbortController: (shapeId, controller) => {
+    set((state) => {
+      const shapes = new Map(state.shapes)
+      const current = shapes.get(shapeId) ?? createDefaultShapeState()
+      shapes.set(shapeId, { ...current, abortController: controller })
+      return { shapes }
+    })
+  },
 
-  reset: () =>
-    set({
-      status: 'idle',
-      messages: [],
-      currentAction: null,
-      iteration: 0,
-      abortController: null,
-    }),
+  clearShapeMessages: (shapeId) => {
+    set((state) => {
+      const shapes = new Map(state.shapes)
+      const current = shapes.get(shapeId) ?? createDefaultShapeState()
+      shapes.set(shapeId, {
+        ...current,
+        messages: [],
+        iteration: 0,
+        currentAction: null,
+      })
+      return { shapes }
+    })
+  },
+
+  resetShape: (shapeId) => {
+    set((state) => {
+      const shapes = new Map(state.shapes)
+      shapes.set(shapeId, createDefaultShapeState())
+      return { shapes }
+    })
+  },
+
+  removeShape: (shapeId) => {
+    set((state) => {
+      const shapes = new Map(state.shapes)
+      const shapeState = shapes.get(shapeId)
+      if (shapeState?.abortController) {
+        shapeState.abortController.abort()
+      }
+      shapes.delete(shapeId)
+      return { shapes }
+    })
+  },
+
+  updateShapeMessages: (shapeId, messages) => {
+    set((state) => {
+      const shapes = new Map(state.shapes)
+      const current = shapes.get(shapeId) ?? createDefaultShapeState()
+      shapes.set(shapeId, { ...current, messages })
+      return { shapes }
+    })
+  },
 }))
 
 function saveSettings(get: () => AgentStore) {

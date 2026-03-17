@@ -191,6 +191,8 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
         wv.close().catch(() => { /* ignore */ })
         webviewRef.current = null
       }
+      // Clean up per-shape agent state (stops running agent if any)
+      useAgentStore.getState().removeShape(shape.id)
     }
     // Only recreate when shape.id changes (not on every render)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -426,7 +428,7 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
 
       {/* Agent Panel */}
       {agentOpen && (
-        <AgentPanel iframeRef={iframeRef} onNavigate={navigateTo} />
+        <AgentPanel shapeId={shape.id} iframeRef={iframeRef} onNavigate={navigateTo} />
       )}
 
       {/* Settings Dialog */}
