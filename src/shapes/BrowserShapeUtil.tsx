@@ -8,7 +8,10 @@ import {
   type TLShape,
 } from 'tldraw'
 import { useCallback, useState, useRef, useEffect } from 'react'
-import { Globe, ArrowLeft, ArrowRight, RotateCw, X } from 'lucide-react'
+import { Globe, ArrowLeft, ArrowRight, RotateCw, X, Bot } from 'lucide-react'
+import { AgentPanel } from '../components/AgentPanel'
+import { SettingsButton, SettingsDialog } from '../components/SettingsDialog'
+import { useAgentStore } from '../stores/agentStore'
 
 declare module 'tldraw' {
   interface TLGlobalShapePropsMap {
@@ -79,6 +82,13 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
   const isEditing = useIsEditing(shape.id)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [urlInput, setUrlInput] = useState(shape.props.url)
+  const [agentOpen, setAgentOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // Load agent settings on mount
+  useEffect(() => {
+    useAgentStore.getState().loadSettings()
+  }, [])
 
   // Sync URL input when shape prop changes externally
   useEffect(() => {
@@ -222,6 +232,20 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
             minWidth: 0,
           }}
         />
+        <SettingsButton onClick={() => setSettingsOpen(true)} />
+        <button
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            setAgentOpen(!agentOpen)
+          }}
+          style={{
+            ...iconButtonStyle,
+            color: agentOpen ? '#88f' : '#666',
+          }}
+          title="Toggle Agent Panel"
+        >
+          <Bot size={12} strokeWidth={1.5} />
+        </button>
         <button onPointerDown={handleClose} style={iconButtonStyle} title="Close">
           <X size={12} strokeWidth={1.5} />
         </button>
@@ -244,6 +268,27 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
           }}
         />
       </div>
+
+      {/* Agent Panel */}
+      {agentOpen && (
+        <AgentPanel iframeRef={iframeRef} onNavigate={navigateTo} />
+      )}
+
+      {/* Settings Dialog */}
+      {settingsOpen && (
+        <SettingsDialog onClose={() => setSettingsOpen(false)} />
+      )}
+
+      {/* CSS for spinner animation */}
+      <style>{`
+        .agent-spin {
+          animation: agent-spin 1s linear infinite;
+        }
+        @keyframes agent-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </HTMLContainer>
   )
 }
