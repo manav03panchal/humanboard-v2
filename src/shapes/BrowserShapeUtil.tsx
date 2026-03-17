@@ -3,12 +3,15 @@ import {
   HTMLContainer,
   T,
   useEditor,
-  useIsEditing,
+  type Editor,
   type RecordProps,
   type TLShape,
 } from 'tldraw'
 import { useCallback, useState, useRef, useEffect } from 'react'
 import { Globe, ArrowLeft, ArrowRight, RotateCw, X } from 'lucide-react'
+import { Webview } from '@tauri-apps/api/webview'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { LogicalPosition, LogicalSize } from '@tauri-apps/api/dpi'
 
 declare module 'tldraw' {
   interface TLGlobalShapePropsMap {
@@ -17,6 +20,9 @@ declare module 'tldraw' {
 }
 
 export type BrowserShape = TLShape<'browser-shape'>
+
+/** Height of the browser title bar in shape-space pixels */
+const TITLE_BAR_HEIGHT = 44
 
 export function isValidUrl(url: string): boolean {
   try {
@@ -74,16 +80,212 @@ const iconButtonStyle: React.CSSProperties = {
   flexShrink: 0,
 }
 
+/** Sanitize tldraw shape ID into a valid webview label (alphanumeric + -/:_) */
+function webviewLabel(shapeId: string): string {
+  return 'browser-' + shapeId.replace(/[^a-zA-Z0-9\-/:_]/g, '_')
+}
+
+/** Compute the screen-space bounds for the webview content area (below title bar) */
+function computeWebviewBounds(editor: Editor, shape: BrowserShape) {
+  const zoom = editor.getZoomLevel()
+  const topLeft = editor.pageToScreen({ x: shape.x, y: shape.y })
+
+  // Content starts below the title bar
+  const x = topLeft.x
+  const y = topLeft.y + TITLE_BAR_HEIGHT * zoom
+  const width = shape.props.w * zoom
+  const height = (shape.props.h - TITLE_BAR_HEIGHT) * zoom
+
+  return { x, y, width: Math.max(width, 1), height: Math.max(height, 1) }
+}
+
+/** Check if the shape overlaps the viewport */
+function isShapeVisible(editor: Editor, shape: BrowserShape): boolean {
+  const bounds = editor.getShapePageBounds(shape)
+  if (!bounds) return false
+  const viewport = editor.getViewportPageBounds()
+  return !(
+    bounds.maxX < viewport.x ||
+    bounds.x > viewport.maxX ||
+    bounds.maxY < viewport.y ||
+    bounds.y > viewport.maxY
+  )
+}
+
 function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
   const editor = useEditor()
-  const isEditing = useIsEditing(shape.id)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
   const [urlInput, setUrlInput] = useState(shape.props.url)
+  const webviewRef = useRef<Webview | null>(null)
+  const visibleRef = useRef(true)
+  const currentUrlRef = useRef(shape.props.url)
+  const creatingRef = useRef(false)
 
   // Sync URL input when shape prop changes externally
   useEffect(() => {
     setUrlInput(shape.props.url)
   }, [shape.props.url])
+
+  // Create/destroy native webview
+  useEffect(() => {
+    const label = webviewLabel(shape.id)
+    let destroyed = false
+
+    async function createNativeWebview() {
+      if (creatingRef.current) return
+      creatingRef.current = true
+
+      try {
+        // Close existing webview if any
+        if (webviewRef.current) {
+          try { await webviewRef.current.close() } catch { /* ignore */ }
+          webviewRef.current = null
+        }
+
+        if (destroyed) return
+
+        const { x, y, width, height } = computeWebviewBounds(editor, shape)
+        const visible = isShapeVisible(editor, shape)
+
+        const appWindow = getCurrentWindow()
+        const wv = new Webview(appWindow, label, {
+          url: shape.props.url,
+          x: visible ? x : -10000,
+          y: visible ? y : -10000,
+          width,
+          height,
+        })
+
+        if (destroyed) {
+          // Component unmounted during creation
+          try { await wv.close() } catch { /* ignore */ }
+          return
+        }
+
+        webviewRef.current = wv
+        currentUrlRef.current = shape.props.url
+        visibleRef.current = visible
+      } catch (err) {
+        console.error('Failed to create browser webview:', err)
+      } finally {
+        creatingRef.current = false
+      }
+    }
+
+    createNativeWebview()
+
+    return () => {
+      destroyed = true
+      const wv = webviewRef.current
+      if (wv) {
+        wv.close().catch(() => { /* ignore */ })
+        webviewRef.current = null
+      }
+    }
+    // Only recreate when shape.id changes (not on every render)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shape.id])
+
+  // Handle URL changes — destroy and recreate webview with new URL
+  useEffect(() => {
+    if (shape.props.url === currentUrlRef.current) return
+    if (!webviewRef.current) return
+
+    const label = webviewLabel(shape.id)
+    let destroyed = false
+
+    async function recreateForUrl() {
+      if (creatingRef.current) return
+      creatingRef.current = true
+
+      try {
+        if (webviewRef.current) {
+          try { await webviewRef.current.close() } catch { /* ignore */ }
+          webviewRef.current = null
+        }
+
+        if (destroyed) return
+
+        const { x, y, width, height } = computeWebviewBounds(editor, shape)
+        const visible = isShapeVisible(editor, shape)
+        const appWindow = getCurrentWindow()
+        const wv = new Webview(appWindow, label, {
+          url: shape.props.url,
+          x: visible ? x : -10000,
+          y: visible ? y : -10000,
+          width,
+          height,
+        })
+
+        if (destroyed) {
+          try { await wv.close() } catch { /* ignore */ }
+          return
+        }
+
+        webviewRef.current = wv
+        currentUrlRef.current = shape.props.url
+        visibleRef.current = visible
+      } catch (err) {
+        console.error('Failed to recreate browser webview:', err)
+      } finally {
+        creatingRef.current = false
+      }
+    }
+
+    recreateForUrl()
+
+    return () => { destroyed = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shape.props.url])
+
+  // Position sync: listen to store changes (camera + shape geometry)
+  useEffect(() => {
+    let rafId = 0
+
+    function syncPosition() {
+      const currentWv = webviewRef.current
+      if (!currentWv) return
+
+      // Get latest shape data from the store
+      const latestShape = editor.getShape(shape.id) as BrowserShape | undefined
+      if (!latestShape) return
+
+      const visible = isShapeVisible(editor, latestShape)
+      const { x, y, width, height } = computeWebviewBounds(editor, latestShape)
+
+      if (!visible) {
+        if (visibleRef.current) {
+          visibleRef.current = false
+          currentWv.hide().catch(() => { /* ignore */ })
+        }
+        return
+      }
+
+      if (!visibleRef.current) {
+        visibleRef.current = true
+        currentWv.show().catch(() => { /* ignore */ })
+      }
+
+      currentWv.setPosition(new LogicalPosition(x, y)).catch(() => { /* ignore */ })
+      currentWv.setSize(new LogicalSize(width, height)).catch(() => { /* ignore */ })
+    }
+
+    function scheduleSync() {
+      cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(syncPosition)
+    }
+
+    // Listen to all store changes (camera moves, shape drags, resizes)
+    const unsub = editor.store.listen(scheduleSync, { scope: 'all' })
+
+    // Initial sync after a tick (webview may not be created yet)
+    const timeout = setTimeout(scheduleSync, 50)
+
+    return () => {
+      unsub()
+      cancelAnimationFrame(rafId)
+      clearTimeout(timeout)
+    }
+  }, [editor, shape.id])
 
   const navigateTo = useCallback(
     (url: string) => {
@@ -108,40 +310,6 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
     [navigateTo, urlInput],
   )
 
-  const handleBack = useCallback(
-    (e: React.PointerEvent) => {
-      e.stopPropagation()
-      try {
-        iframeRef.current?.contentWindow?.history.back()
-      } catch {
-        // cross-origin restriction — silently ignore
-      }
-    },
-    [],
-  )
-
-  const handleForward = useCallback(
-    (e: React.PointerEvent) => {
-      e.stopPropagation()
-      try {
-        iframeRef.current?.contentWindow?.history.forward()
-      } catch {
-        // cross-origin restriction — silently ignore
-      }
-    },
-    [],
-  )
-
-  const handleRefresh = useCallback(
-    (e: React.PointerEvent) => {
-      e.stopPropagation()
-      if (iframeRef.current) {
-        iframeRef.current.src = shape.props.url
-      }
-    },
-    [shape.props.url],
-  )
-
   const handleClose = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation()
@@ -149,18 +317,6 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
     },
     [editor, shape.id],
   )
-
-  // Stop wheel events from propagating to the canvas
-  const containerRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const stopWheel = (e: WheelEvent) => {
-      e.stopPropagation()
-    }
-    el.addEventListener('wheel', stopWheel, true)
-    return () => el.removeEventListener('wheel', stopWheel, true)
-  }, [])
 
   return (
     <HTMLContainer
@@ -174,7 +330,7 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
         pointerEvents: 'all',
       }}
     >
-      {/* Custom title bar */}
+      {/* Title bar with URL input and navigation */}
       <div
         onPointerDown={stopEvent}
         onPointerUp={stopEvent}
@@ -193,13 +349,13 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
         }}
       >
         <Globe size={14} strokeWidth={1.5} color="#666" style={{ flexShrink: 0 }} />
-        <button onPointerDown={handleBack} style={iconButtonStyle} title="Back">
+        <button onPointerDown={(e) => { e.stopPropagation() }} style={iconButtonStyle} title="Back">
           <ArrowLeft size={12} strokeWidth={1.5} />
         </button>
-        <button onPointerDown={handleForward} style={iconButtonStyle} title="Forward">
+        <button onPointerDown={(e) => { e.stopPropagation() }} style={iconButtonStyle} title="Forward">
           <ArrowRight size={12} strokeWidth={1.5} />
         </button>
-        <button onPointerDown={handleRefresh} style={iconButtonStyle} title="Refresh">
+        <button onPointerDown={(e) => { e.stopPropagation() }} style={iconButtonStyle} title="Refresh">
           <RotateCw size={12} strokeWidth={1.5} />
         </button>
         <input
@@ -227,22 +383,20 @@ function BrowserShapeComponent({ shape }: { shape: BrowserShape }) {
         </button>
       </div>
 
-      {/* iframe content */}
+      {/* Placeholder for native webview content area */}
       <div
-        ref={containerRef}
-        style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
+        style={{
+          flex: 1,
+          backgroundColor: '#111',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#333',
+          fontSize: 13,
+          userSelect: 'none',
+        }}
       >
-        <iframe
-          ref={iframeRef}
-          src={shape.props.url}
-          sandbox="allow-scripts allow-same-origin"
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            pointerEvents: isEditing ? 'auto' : 'none',
-          }}
-        />
+        <Globe size={32} strokeWidth={1} color="#222" />
       </div>
     </HTMLContainer>
   )

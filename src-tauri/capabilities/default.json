@@ -3,11 +3,19 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": ["main"],
+  "webviews": ["*"],
   "permissions": [
     "core:default",
     "opener:default",
     "core:window:allow-start-dragging",
     "dialog:default",
-    "pty:default"
+    "pty:default",
+    "core:webview:allow-create-webview",
+    "core:webview:allow-set-webview-position",
+    "core:webview:allow-set-webview-size",
+    "core:webview:allow-webview-close",
+    "core:webview:allow-webview-hide",
+    "core:webview:allow-webview-show",
+    "core:webview:allow-set-webview-zoom"
   ]
 }
