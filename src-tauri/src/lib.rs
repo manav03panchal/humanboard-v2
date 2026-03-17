@@ -7,8 +7,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_pty::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_shell::init())
         .manage(commands::watcher::init_watcher_state())
         .manage(commands::lsp::init_lsp_state())
+        .manage(commands::agent::init_agent_state())
         .invoke_handler(tauri::generate_handler![
             commands::files::read_file,
             commands::files::write_file,
@@ -32,6 +34,9 @@ pub fn run() {
             commands::webview::webview_go_back,
             commands::webview::webview_go_forward,
             commands::webview::webview_reload,
+            commands::agent::start_agent,
+            commands::agent::run_agent_task,
+            commands::agent::stop_agent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
