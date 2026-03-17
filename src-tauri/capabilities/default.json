@@ -16,6 +16,28 @@
     "core:webview:allow-webview-close",
     "core:webview:allow-webview-hide",
     "core:webview:allow-webview-show",
-    "core:webview:allow-set-webview-zoom"
+    "core:webview:allow-set-webview-zoom",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/agent-browser",
+          "cmd": "binaries/agent-browser",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "binaries/agent-browser",
+          "cmd": "binaries/agent-browser",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    }
   ]
 }
