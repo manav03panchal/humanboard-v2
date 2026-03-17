@@ -29,6 +29,7 @@ pub fn run() {
             commands::lsp::lsp_send,
             commands::lsp::lsp_stop,
             commands::webview::create_webview,
+            commands::webview::move_webview,
             commands::webview::close_webview,
             commands::webview::navigate_webview,
             commands::webview::webview_go_back,
