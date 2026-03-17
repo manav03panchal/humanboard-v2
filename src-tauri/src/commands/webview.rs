@@ -34,6 +34,26 @@ pub async fn create_webview(
     Ok(())
 }
 
+/// Reposition and/or resize an existing child webview.
+#[tauri::command]
+pub async fn move_webview(
+    app: AppHandle,
+    label: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    let wv = app
+        .get_webview(&label)
+        .ok_or_else(|| format!("Webview '{}' not found", label))?;
+    wv.set_position(tauri::LogicalPosition::new(x, y))
+        .map_err(|e| e.to_string())?;
+    wv.set_size(tauri::LogicalSize::new(width, height))
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Close and destroy a child webview by label.
 #[tauri::command]
 pub async fn close_webview(app: AppHandle, label: String) -> Result<(), String> {
