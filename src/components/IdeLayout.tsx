@@ -975,32 +975,6 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      {/* Global tab bar + controls */}
-      <div style={{
-        display: 'flex', alignItems: 'center', height: 28,
-        backgroundColor: 'var(--hb-surface)', borderBottom: '1px solid var(--hb-border)',
-        padding: '0 4px', flexShrink: 0,
-      }}>
-        <TerminalIcon size={11} color="var(--hb-text-muted)" style={{ marginRight: 6 }} />
-        <span style={{ fontSize: 11, color: 'var(--hb-text-muted)', fontFamily: '"JetBrains Mono", monospace', marginRight: 8 }}>
-          Terminal
-        </span>
-        <button onClick={() => addTab()} title="New terminal" style={{
-          background: 'none', border: 'none', color: 'var(--hb-text-muted)',
-          cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center',
-        }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
-        ><Plus size={12} /></button>
-        <button onClick={onClose} title="Close panel" style={{
-          marginLeft: 'auto', background: 'none', border: 'none',
-          color: 'var(--hb-text-muted)', cursor: 'pointer', padding: 2, display: 'flex',
-        }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
-        ><X size={12} /></button>
-      </div>
-
       {/* Split panes */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
         {panes.map((pane, pi) => (
@@ -1011,7 +985,7 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
               onDrop={(e) => handlePaneDrop(pane.id, e)}
               onDragLeave={() => setDropTarget(null)}
             >
-              {/* Per-pane tab bar */}
+              {/* Tab bar — terminal tabs + add/close inline */}
               <div style={{
                 display: 'flex', alignItems: 'center', height: 30,
                 backgroundColor: 'var(--hb-bg)', borderBottom: '1px solid var(--hb-border)',
@@ -1041,6 +1015,20 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
                     ><X size={11} /></button>
                   </div>
                 ))}
+                <button onClick={() => addTab(pane.id)} title="New terminal" style={{
+                  background: 'none', border: 'none', color: 'var(--hb-text-muted)',
+                  cursor: 'pointer', padding: '0 6px', display: 'flex', alignItems: 'center', height: '100%',
+                }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
+                ><Plus size={12} /></button>
+                <button onClick={onClose} title="Close panel" style={{
+                  marginLeft: 'auto', background: 'none', border: 'none',
+                  color: 'var(--hb-text-muted)', cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center', height: '100%',
+                }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
+                ><X size={12} /></button>
               </div>
 
               {/* Terminal area */}
