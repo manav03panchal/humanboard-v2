@@ -2,6 +2,19 @@ use std::fs;
 use std::path::Path;
 
 #[tauri::command]
+pub fn get_git_branch(vault_path: String) -> Option<String> {
+    let head_path = Path::new(&vault_path).join(".git/HEAD");
+    let content = fs::read_to_string(head_path).ok()?;
+    let trimmed = content.trim();
+    if let Some(ref_path) = trimmed.strip_prefix("ref: refs/heads/") {
+        Some(ref_path.to_string())
+    } else {
+        // Detached HEAD — return short hash
+        Some(trimmed.chars().take(7).collect())
+    }
+}
+
+#[tauri::command]
 pub fn init_vault(path: String, vault_root: tauri::State<'_, crate::VaultRoot>) -> Result<(), String> {
     let vault_dir = Path::new(&path).join(".humanboard");
     if !vault_dir.exists() {

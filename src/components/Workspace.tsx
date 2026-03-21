@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { invoke } from '@tauri-apps/api/core'
+import { GitBranch } from 'lucide-react'
 import { useStoreWithEqualityFn } from 'zustand/traditional'
 import { Sidebar } from './Sidebar'
 import { Canvas, StatusBar } from './Canvas'
 import { IdeLayout } from './IdeLayout'
+import { SidebarVaultDropdown } from './SidebarVaultDropdown'
 import { WindowTitleBar } from './WindowTitleBar'
 import { useFileStore } from '../stores/fileStore'
 import { useEditorStore } from '../stores/editorStore'
@@ -26,6 +29,8 @@ export function Workspace() {
   const loadTheme = useThemeStore((s) => s.loadTheme)
   const os = usePlatform()
   const isMac = os === 'macos'
+  const sidebarOpen = useVaultStore((s) => s.sidebarOpen)
+  const [gitBranch, setGitBranch] = useState<string | null>(null)
   const [quickOpenOpen, setQuickOpenOpen] = useState(false)
   const ideMode = useEditorStore((s) => s.ideMode)
   const setIdeMode = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
@@ -59,6 +64,11 @@ export function Workspace() {
     return () => window.removeEventListener('humanboard:toggle-ide-mode', handler)
   }, [])
 
+
+  useEffect(() => {
+    if (!vaultPath) return
+    invoke<string | null>('get_git_branch', { vaultPath }).then(setGitBranch).catch(() => setGitBranch(null))
+  }, [vaultPath])
 
   // On vault change: load theme, clear all state, reset to canvas
   useEffect(() => {
@@ -99,6 +109,7 @@ export function Workspace() {
 
   return (
     <div style={{ display: 'flex', width: '100%', height: 'calc(100vh - 24px)' }}>
+      {/* macOS drag region — only covers sidebar area; title bar handles its own drag */}
       {isMac && (
         <div
           onMouseDown={handleDrag}
@@ -106,15 +117,50 @@ export function Workspace() {
             position: 'fixed',
             top: 0,
             left: 0,
-            right: 0,
+            width: sidebarOpen ? 260 : 0,
             height: 28,
             zIndex: 9999,
+            transition: 'width 0.2s ease',
           }}
         />
       )}
       <WindowTitleBar />
       <Sidebar onFileClick={handleFileClick} />
-      <div style={{ flex: 1, height: '100%', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* macOS title bar — clears traffic lights, shows dir + branch */}
+        {isMac && (
+          <div
+            onMouseDown={handleDrag}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: 38,
+              flexShrink: 0,
+              paddingLeft: sidebarOpen ? 12 : 78,
+              paddingRight: sidebarOpen ? 12 : 78,
+              transition: 'padding-left 0.2s ease, padding-right 0.2s ease',
+              gap: 8,
+              backgroundColor: 'var(--hb-surface)',
+              borderBottom: '1px solid var(--hb-border)',
+              fontSize: 12,
+              fontFamily: '"JetBrains Mono", monospace',
+              color: 'var(--hb-text-muted)',
+              userSelect: 'none',
+            }}
+          >
+            <div onMouseDown={(e) => e.stopPropagation()}>
+              <SidebarVaultDropdown />
+            </div>
+            {gitBranch && (
+              <>
+                <GitBranch size={13} />
+                <span>{gitBranch}</span>
+              </>
+            )}
+          </div>
+        )}
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <div
           style={{
             width: '100%',
@@ -146,6 +192,7 @@ export function Workspace() {
             openFiles={openFiles}
             onClose={() => setIdeMode(false)}
           />
+        </div>
         </div>
       </div>
       <QuickOpen open={quickOpenOpen} onClose={() => setQuickOpenOpen(false)} />

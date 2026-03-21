@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useVaultStore } from '../stores/vaultStore'
 import { useFileStore } from '../stores/fileStore'
 import { useThemeStore } from '../lib/theme'
@@ -49,8 +50,8 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Cmd+W — prevent closing window (IDE mode handles its own tab close)
-      if (meta && e.key === 'w') {
+      // Cmd+A — prevent browser native select-all outside editors
+      if (meta && e.key === 'a') {
         if (!inEditor) e.preventDefault()
         return
       }
@@ -99,6 +100,15 @@ export function useKeyboardShortcuts() {
     }
 
     window.addEventListener('keydown', handler, true) // capture phase — fires before tldraw
-    return () => window.removeEventListener('keydown', handler, true)
+
+    // macOS: Cmd+W triggers native close which Rust intercepts and emits here
+    const unlisten = getCurrentWindow().listen('close-requested', () => {
+      window.dispatchEvent(new CustomEvent('humanboard:close-tab'))
+    })
+
+    return () => {
+      window.removeEventListener('keydown', handler, true)
+      unlisten.then((fn) => fn())
+    }
   }, [toggleSidebar])
 }

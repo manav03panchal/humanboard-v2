@@ -11,6 +11,7 @@ import {
 } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { customShapeUtils } from '../shapes'
+import { ShapeHoming } from './ShapeHoming'
 import { saveCanvasState, loadCanvasState } from '../lib/canvasPersistence'
 import { useVaultStore } from '../stores/vaultStore'
 import { useThemeStore } from '../lib/theme'
@@ -611,7 +612,7 @@ export function Canvas() {
         components={tldrawComponents}
         inferDarkMode
       />
-      {/* StatusBar moved to Workspace for visibility in IDE mode */}
+      <ShapeHoming editor={editorRef.current} />
     </div>
   )
 }

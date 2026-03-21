@@ -1,6 +1,7 @@
 mod commands;
 
 use std::sync::Mutex;
+use tauri::Emitter;
 pub struct VaultRoot(pub Mutex<Option<String>>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -11,6 +12,20 @@ pub fn run() {
         .plugin(tauri_plugin_pty::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                #[cfg(target_os = "macos")]
+                {
+                    // Prevent Cmd+W from closing — emit to JS to handle as tab close
+                    api.prevent_close();
+                    let _ = window.emit("close-requested", ());
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    let _ = (window, api); // suppress unused warnings
+                }
+            }
+        })
         .manage(VaultRoot(Mutex::new(None)))
         .manage(commands::watcher::init_watcher_state())
         .manage(commands::lsp::init_lsp_state())
@@ -26,6 +41,7 @@ pub fn run() {
             commands::vault::init_vault,
             commands::vault::save_canvas,
             commands::vault::load_canvas,
+            commands::vault::get_git_branch,
             commands::watcher::watch_vault,
             commands::watcher::unwatch_vault,
             commands::lsp::lsp_start,

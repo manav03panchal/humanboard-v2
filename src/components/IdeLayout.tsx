@@ -143,39 +143,70 @@ function moveTabBetweenPanes(
   filePath: string,
   insertIndex?: number,
 ): PaneNode {
-  // First remove from source
-  let result = removeTab(node, fromPaneId, filePath)
-  if (!result) return node
-  // Then add to target
-  result = updateLeaf(result, toPaneId, (leaf) => {
+  // Add to target first (so the target pane exists even if tree collapses)
+  let result = updateLeaf(node, toPaneId, (leaf) => {
     if (leaf.tabs.includes(filePath)) return { ...leaf, activeTab: filePath }
     const tabs = [...leaf.tabs]
     const idx = insertIndex != null ? insertIndex : tabs.length
     tabs.splice(idx, 0, filePath)
     return { ...leaf, tabs, activeTab: filePath }
   })
-  return result
+  // Then remove from source
+  const removed = removeTab(result, fromPaneId, filePath)
+  return removed ?? result
 }
 
 // ─── Drop zones ───
 
 type DropZone = 'left' | 'right' | 'top' | 'bottom' | 'center'
 
-function getDropZone(e: React.DragEvent, el: HTMLElement): DropZone {
+
+// ─── Pointer-based drag context (replaces HTML5 drag/drop for macOS WebKit compat) ───
+
+interface PointerDragState {
+  filePath: string
+  sourcePaneId: PaneId
+  startX: number
+  startY: number
+  dragging: boolean // true once past threshold
+  ghostEl: HTMLDivElement | null
+}
+
+let pointerDrag: PointerDragState | null = null
+
+function getDropZoneFromPointer(x: number, y: number, el: HTMLElement): DropZone {
   const rect = el.getBoundingClientRect()
-  const x = (e.clientX - rect.left) / rect.width
-  const y = (e.clientY - rect.top) / rect.height
-  const edgeThreshold = 0.25
-  if (x < edgeThreshold) return 'left'
-  if (x > 1 - edgeThreshold) return 'right'
-  if (y < edgeThreshold) return 'top'
-  if (y > 1 - edgeThreshold) return 'bottom'
+  const rx = (x - rect.left) / rect.width
+  const ry = (y - rect.top) / rect.height
+  const edge = 0.25
+  if (rx < edge) return 'left'
+  if (rx > 1 - edge) return 'right'
+  if (ry < edge) return 'top'
+  if (ry > 1 - edge) return 'bottom'
   return 'center'
 }
 
-// ─── Drag context ───
-
-let dragState: { filePath: string; sourcePaneId: PaneId } | null = null
+function createDragGhost(text: string): HTMLDivElement {
+  const el = document.createElement('div')
+  el.textContent = text
+  Object.assign(el.style, {
+    position: 'fixed',
+    zIndex: '99999',
+    padding: '4px 12px',
+    borderRadius: '4px',
+    backgroundColor: 'var(--hb-surface)',
+    border: '1px solid var(--hb-border)',
+    color: 'var(--hb-fg)',
+    fontSize: '12px',
+    fontFamily: '"JetBrains Mono", monospace',
+    pointerEvents: 'none',
+    whiteSpace: 'nowrap',
+    opacity: '0.9',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+  })
+  document.body.appendChild(el)
+  return el
+}
 
 // ─── Main component ───
 
@@ -301,6 +332,17 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
       }
       const direction: 'horizontal' | 'vertical' = (zone === 'left' || zone === 'right') ? 'horizontal' : 'vertical'
       const position: 'before' | 'after' = (zone === 'left' || zone === 'top') ? 'before' : 'after'
+      if (sourcePaneId === targetPaneId) {
+        // Same pane — remove from source first, then split
+        const leaf = findLeaf(prev, sourcePaneId)
+        if (leaf && leaf.tabs.length > 1) {
+          let result = removeTab(prev, sourcePaneId, filePath)
+          if (!result) return prev
+          return splitLeaf(result, targetPaneId, direction, filePath, position)
+        }
+        // Only tab — can't remove, just split (duplicates)
+        return splitLeaf(prev, targetPaneId, direction, filePath, position)
+      }
       // Remove from source first, then split
       let result = removeTab(prev, sourcePaneId, filePath)
       if (!result) return prev
@@ -392,8 +434,18 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
         return
       }
     }
+    // macOS Cmd+W — Rust intercepts native close and emits humanboard:close-tab
+    const closeTabHandler = () => {
+      const leaf = findFirstLeaf(rootPaneRef.current)
+      if (leaf?.activeTab) handleCloseTab(leaf.id, leaf.activeTab)
+    }
+
     window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    window.addEventListener('humanboard:close-tab', closeTabHandler)
+    return () => {
+      window.removeEventListener('keydown', handler)
+      window.removeEventListener('humanboard:close-tab', closeTabHandler)
+    }
   }, [handleSplitPane, handleCloseTab, handleActivateTab, findFirstLeaf])
 
   // Terminal panel resize
@@ -413,6 +465,95 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
   }, [terminalHeight])
+
+  // Global pointer drag handler — handles threshold, ghost, and drop resolution
+  useEffect(() => {
+    const THRESHOLD = 5
+
+    const onMove = (e: PointerEvent) => {
+      if (!pointerDrag) return
+      const dx = e.clientX - pointerDrag.startX
+      const dy = e.clientY - pointerDrag.startY
+
+      if (!pointerDrag.dragging) {
+        if (Math.abs(dx) < THRESHOLD && Math.abs(dy) < THRESHOLD) return
+        pointerDrag.dragging = true
+        const fileName = pointerDrag.filePath.split('/').pop() ?? pointerDrag.filePath
+        pointerDrag.ghostEl = createDragGhost(fileName)
+      }
+
+      if (pointerDrag.ghostEl) {
+        pointerDrag.ghostEl.style.left = `${e.clientX + 12}px`
+        pointerDrag.ghostEl.style.top = `${e.clientY - 12}px`
+      }
+    }
+
+    const onUp = (e: PointerEvent) => {
+      if (!pointerDrag) return
+      const drag = pointerDrag
+      pointerDrag = null
+
+      if (drag.ghostEl) drag.ghostEl.remove()
+      if (!drag.dragging) return
+
+      // Find which pane's editor area we're over (via data-pane-content)
+      const contentEls = document.querySelectorAll('[data-pane-content]')
+      for (const el of contentEls) {
+        const rect = el.getBoundingClientRect()
+        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+          const targetPaneId = (el as HTMLElement).dataset.paneContent!
+          const zone = getDropZoneFromPointer(e.clientX, e.clientY, el as HTMLElement)
+          handleDropOnPane(targetPaneId, zone, drag.filePath, drag.sourcePaneId)
+          return
+        }
+      }
+
+      // Find which pane's tab bar we're over (via data-pane-tabbar)
+      const tabBarEls = document.querySelectorAll('[data-pane-tabbar]')
+      for (const el of tabBarEls) {
+        const rect = el.getBoundingClientRect()
+        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+          const targetPaneId = (el as HTMLElement).dataset.paneTabbar!
+          // Check if over a specific tab for reorder
+          const tabEls = el.querySelectorAll('[data-tab-index]')
+          for (const tabEl of tabEls) {
+            const tr = tabEl.getBoundingClientRect()
+            if (e.clientX >= tr.left && e.clientX <= tr.right) {
+              const targetIndex = parseInt((tabEl as HTMLElement).dataset.tabIndex!, 10)
+              if (drag.sourcePaneId === targetPaneId) {
+                // Reorder within same pane
+                setRootPane((prev) => {
+                  const leaf = findLeaf(prev, targetPaneId)
+                  if (!leaf) return prev
+                  const oldIndex = leaf.tabs.indexOf(drag.filePath)
+                  if (oldIndex === -1 || oldIndex === targetIndex) return prev
+                  const tabs = [...leaf.tabs]
+                  tabs.splice(oldIndex, 1)
+                  const insertAt = targetIndex > oldIndex ? targetIndex - 1 : targetIndex
+                  tabs.splice(insertAt, 0, drag.filePath)
+                  return updateLeaf(prev, targetPaneId, () => ({ ...leaf, tabs }))
+                })
+              } else {
+                // Move to another pane's tab bar
+                handleDropOnPane(targetPaneId, 'center', drag.filePath, drag.sourcePaneId)
+              }
+              return
+            }
+          }
+          // Dropped on tab bar but not on a specific tab — add to end
+          handleDropOnPane(targetPaneId, 'center', drag.filePath, drag.sourcePaneId)
+          return
+        }
+      }
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [handleDropOnPane])
 
   return (
     <div
@@ -575,7 +716,7 @@ function SplitPaneView({ split, ...handlers }: PaneHandlers & { split: SplitPane
 
 // ─── Leaf pane (tab bar + editor) ───
 
-function LeafPaneView({ pane, onCloseTab, onActivateTab, onReorderTabs, onDropOnPane, previewFiles, onTogglePreview }: PaneHandlers & { pane: LeafPane }) {
+function LeafPaneView({ pane, onCloseTab, onActivateTab, onReorderTabs: _onReorderTabs, onDropOnPane: _onDropOnPane, previewFiles, onTogglePreview }: PaneHandlers & { pane: LeafPane }) {
   const vaultPath = useVaultStore((s) => s.vaultPath)
   const [dropZone, setDropZone] = useState<DropZone | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -593,72 +734,71 @@ function LeafPaneView({ pane, onCloseTab, onActivateTab, onReorderTabs, onDropOn
   const isImage = IMAGE_EXTS.has(activeExt)
   const mdPreview = pane.activeTab ? previewFiles.has(pane.activeTab) : false
 
-  const handleEditorDragOver = useCallback((e: React.DragEvent) => {
-    if (!dragState) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    if (contentRef.current) {
-      setDropZone(getDropZone(e, contentRef.current))
+  // Pointer-based tab drag (replaces HTML5 drag/drop for macOS WebKit compat)
+  const handleTabPointerDown = useCallback((filePath: string, e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest('button')) return
+    pointerDrag = {
+      filePath,
+      sourcePaneId: pane.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      dragging: false,
+      ghostEl: null,
     }
-  }, [])
-
-  const handleEditorDragLeave = useCallback(() => { setDropZone(null) }, [])
-
-  const handleEditorDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setDropZone(null)
-    if (!dragState || !contentRef.current) return
-    const zone = getDropZone(e, contentRef.current)
-    onDropOnPane(pane.id, zone, dragState.filePath, dragState.sourcePaneId)
-    dragState = null
-  }, [pane.id, onDropOnPane])
-
-  // Tab drag handlers
-  const handleTabDragStart = useCallback((filePath: string, e: React.DragEvent) => {
-    dragState = { filePath, sourcePaneId: pane.id }
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', filePath)
   }, [pane.id])
 
-  const handleTabDragOver = useCallback((index: number, e: React.DragEvent) => {
-    if (!dragState) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    setDragOverTabIndex(index)
-  }, [])
+  // Listen for global drag events — each pane updates its OWN visual state
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!pointerDrag || !pointerDrag.dragging) return
 
-  const handleTabDrop = useCallback((index: number, e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragOverTabIndex(null)
-    if (!dragState) return
+      // Update this pane's drop zone if pointer is over our editor area
+      if (contentRef.current) {
+        const rect = contentRef.current.getBoundingClientRect()
+        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+          setDropZone(getDropZoneFromPointer(e.clientX, e.clientY, contentRef.current))
+        } else {
+          setDropZone(null)
+        }
+      }
 
-    const { filePath, sourcePaneId } = dragState
-    dragState = null
-
-    if (sourcePaneId === pane.id) {
-      // Reorder within same pane
-      const oldIndex = pane.tabs.indexOf(filePath)
-      if (oldIndex === -1 || oldIndex === index) return
-      const tabs = [...pane.tabs]
-      tabs.splice(oldIndex, 1)
-      const insertAt = index > oldIndex ? index - 1 : index
-      tabs.splice(insertAt, 0, filePath)
-      onReorderTabs(pane.id, tabs)
-    } else {
-      // Move between panes
-      onDropOnPane(pane.id, 'center', filePath, sourcePaneId)
+      // Update this pane's tab indicator if pointer is over our tabs
+      if (tabBarRef.current) {
+        const tabEls = tabBarRef.current.querySelectorAll('[data-tab-index]')
+        let found = false
+        tabEls.forEach((el) => {
+          const r = el.getBoundingClientRect()
+          if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+            setDragOverTabIndex(parseInt((el as HTMLElement).dataset.tabIndex!, 10))
+            found = true
+          }
+        })
+        if (!found) setDragOverTabIndex(null)
+      }
     }
-  }, [pane.id, pane.tabs, onReorderTabs, onDropOnPane])
 
-  const handleTabBarDragLeave = useCallback(() => { setDragOverTabIndex(null) }, [])
+    const onUp = () => {
+      // Clean up our visual state when any drag ends
+      setDropZone(null)
+      setDragOverTabIndex(null)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [pane.id])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
       {/* Tab bar */}
       <div
         ref={tabBarRef}
-        onDragLeave={handleTabBarDragLeave}
+        data-pane-tabbar={pane.id}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -680,9 +820,8 @@ function LeafPaneView({ pane, onCloseTab, onActivateTab, onReorderTabs, onDropOn
             onTogglePreview={MD_EXTS.has(getExt(filePath)) ? () => onTogglePreview(filePath) : undefined}
             onClick={() => onActivateTab(pane.id, filePath)}
             onClose={() => onCloseTab(pane.id, filePath)}
-            onDragStart={(e) => handleTabDragStart(filePath, e)}
-            onDragOver={(e) => handleTabDragOver(i, e)}
-            onDrop={(e) => handleTabDrop(i, e)}
+            onPointerDown={(e) => handleTabPointerDown(filePath, e)}
+            tabIndex={i}
             showDropIndicator={dragOverTabIndex === i}
           />
         ))}
@@ -691,10 +830,8 @@ function LeafPaneView({ pane, onCloseTab, onActivateTab, onReorderTabs, onDropOn
       {/* Editor area with drop zones */}
       <div
         ref={contentRef}
+        data-pane-content={pane.id}
         style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}
-        onDragOver={handleEditorDragOver}
-        onDragLeave={handleEditorDragLeave}
-        onDrop={handleEditorDrop}
       >
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
           {pane.activeTab && vaultPath && (
@@ -746,16 +883,15 @@ function LeafPaneView({ pane, onCloseTab, onActivateTab, onReorderTabs, onDropOn
 
 // ─── Tab ───
 
-const Tab = memo(function Tab({ filePath, isActive, isPreview, onTogglePreview, onClick, onClose, onDragStart, onDragOver, onDrop, showDropIndicator }: {
+const Tab = memo(function Tab({ filePath, isActive, isPreview, onTogglePreview, onClick, onClose, onPointerDown, tabIndex, showDropIndicator }: {
   filePath: string
   isActive: boolean
   isPreview?: boolean
   onTogglePreview?: () => void
   onClick: () => void
   onClose: () => void
-  onDragStart: (e: React.DragEvent) => void
-  onDragOver: (e: React.DragEvent) => void
-  onDrop: (e: React.DragEvent) => void
+  onPointerDown: (e: React.PointerEvent) => void
+  tabIndex: number
   showDropIndicator: boolean
 }) {
   const file = useFileStore((s) => s.files.get(filePath))
@@ -766,11 +902,9 @@ const Tab = memo(function Tab({ filePath, isActive, isPreview, onTogglePreview, 
 
   return (
     <div
-      draggable
       data-active-tab={isActive || undefined}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
+      data-tab-index={tabIndex}
+      onPointerDown={onPointerDown}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -790,7 +924,6 @@ const Tab = memo(function Tab({ filePath, isActive, isPreview, onTogglePreview, 
         borderBottom: isActive ? '1px solid #528bff' : '1px solid transparent',
         borderLeft: showDropIndicator ? '2px solid #528bff' : '2px solid transparent',
         position: 'relative',
-        userSelect: 'none',
       }}
     >
       <Icon size={13} />
@@ -883,70 +1016,110 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
     setPanes((prev) => prev.map((p) => p.id !== paneId ? p : { ...p, activeTab: termId }))
   }, [])
 
-  const handleDragStart = useCallback((termId: number, paneId: number, e: React.DragEvent) => {
-    setDragInfo({ termId, paneId })
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', String(termId))
+  // Pointer-based terminal tab drag
+  const termDragRef = useRef<{ termId: number; paneId: number; startX: number; startY: number; dragging: boolean; ghostEl: HTMLDivElement | null } | null>(null)
+
+  const handleTermPointerDown = useCallback((termId: number, paneId: number, e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest('button')) return
+    termDragRef.current = { termId, paneId, startX: e.clientX, startY: e.clientY, dragging: false, ghostEl: null }
   }, [])
 
-  const handlePaneDragOver = useCallback((paneId: number, e: React.DragEvent) => {
-    if (!dragInfo) return
-    e.preventDefault()
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const x = (e.clientX - rect.left) / rect.width
-    const zone = x < 0.3 ? 'left' as const : x > 0.7 ? 'right' as const : 'center' as const
-    setDropTarget({ paneId, zone })
-  }, [dragInfo])
+  useEffect(() => {
+    const THRESHOLD = 5
 
-  const handlePaneDrop = useCallback((paneId: number, e: React.DragEvent) => {
-    e.preventDefault()
-    if (!dragInfo || !dropTarget) { setDragInfo(null); setDropTarget(null); return }
+    const onMove = (e: PointerEvent) => {
+      const drag = termDragRef.current
+      if (!drag) return
 
-    const { paneId: srcPaneId } = dragInfo
-    const { zone } = dropTarget
-    setDragInfo(null)
-    setDropTarget(null)
-
-    if (zone === 'center' && srcPaneId === paneId) return // no-op
-
-    setPanes((prev) => {
-      // Remove the dragged tab from its source pane
-      let tab: { id: number; label: string } | undefined
-      let afterRemove = prev.map((p) => {
-        if (p.id !== srcPaneId) return p
-        tab = p.tabs.find((t) => t.id === dragInfo.termId)
-        const nextTabs = p.tabs.filter((t) => t.id !== dragInfo.termId)
-        if (nextTabs.length === 0) return null
-        return { ...p, tabs: nextTabs, activeTab: p.activeTab === dragInfo.termId ? nextTabs[nextTabs.length - 1].id : p.activeTab }
-      }).filter(Boolean) as TermPane[]
-      if (!tab) return prev
-
-      if (zone === 'center') {
-        // Move tab into existing pane
-        const result = afterRemove.map((p) => p.id !== paneId ? p : {
-          ...p, tabs: [...p.tabs, tab!], activeTab: tab!.id,
-        })
-        setSizes(result.map(() => 100 / result.length))
-        return result
-      } else {
-        // Split — move tab into a new pane
-        const newPaneId = ++termIdCounter
-        const newPane: TermPane = { id: newPaneId, tabs: [tab], activeTab: tab.id }
-        const idx = afterRemove.findIndex((p) => p.id === paneId)
-        if (idx === -1) return prev
-        const result = [...afterRemove]
-        const insertAt = zone === 'left' ? idx : idx + 1
-        result.splice(insertAt, 0, newPane)
-        setSizes(result.map(() => 100 / result.length))
-        return result
+      if (!drag.dragging) {
+        if (Math.abs(e.clientX - drag.startX) < THRESHOLD && Math.abs(e.clientY - drag.startY) < THRESHOLD) return
+        drag.dragging = true
+        setDragInfo({ termId: drag.termId, paneId: drag.paneId })
+        const pane = panes.find((p) => p.id === drag.paneId)
+        const tab = pane?.tabs.find((t) => t.id === drag.termId)
+        drag.ghostEl = createDragGhost(tab?.label ?? 'terminal')
       }
-    })
-  }, [dragInfo, dropTarget])
 
-  const handleDragEnd = useCallback(() => {
-    setDragInfo(null)
-    setDropTarget(null)
-  }, [])
+      if (drag.ghostEl) {
+        drag.ghostEl.style.left = `${e.clientX + 12}px`
+        drag.ghostEl.style.top = `${e.clientY - 12}px`
+      }
+
+      // Detect drop target pane + zone
+      const paneEls = document.querySelectorAll('[data-term-pane]')
+      let found = false
+      for (const el of paneEls) {
+        const rect = el.getBoundingClientRect()
+        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+          const pid = parseInt((el as HTMLElement).dataset.termPane!, 10)
+          const x = (e.clientX - rect.left) / rect.width
+          const zone = x < 0.3 ? 'left' as const : x > 0.7 ? 'right' as const : 'center' as const
+          setDropTarget({ paneId: pid, zone })
+          found = true
+          break
+        }
+      }
+      if (!found) setDropTarget(null)
+    }
+
+    const onUp = () => {
+      const drag = termDragRef.current
+      termDragRef.current = null
+      if (!drag) return
+      if (drag.ghostEl) drag.ghostEl.remove()
+      if (!drag.dragging) return
+
+      setDragInfo(null)
+
+      // Use dropTarget from state via a ref-like approach
+      setDropTarget((currentTarget) => {
+        if (!currentTarget) return null
+
+        const { paneId: targetPaneId, zone } = currentTarget
+        if (zone === 'center' && drag.paneId === targetPaneId) return null
+
+        setPanes((prev) => {
+          let tab: { id: number; label: string } | undefined
+          let afterRemove = prev.map((p) => {
+            if (p.id !== drag.paneId) return p
+            tab = p.tabs.find((t) => t.id === drag.termId)
+            const nextTabs = p.tabs.filter((t) => t.id !== drag.termId)
+            if (nextTabs.length === 0) return null
+            return { ...p, tabs: nextTabs, activeTab: p.activeTab === drag.termId ? nextTabs[nextTabs.length - 1].id : p.activeTab }
+          }).filter(Boolean) as TermPane[]
+          if (!tab) return prev
+
+          if (zone === 'center') {
+            const result = afterRemove.map((p) => p.id !== targetPaneId ? p : {
+              ...p, tabs: [...p.tabs, tab!], activeTab: tab!.id,
+            })
+            setSizes(result.map(() => 100 / result.length))
+            return result
+          } else {
+            const newPaneId = ++termIdCounter
+            const newPane: TermPane = { id: newPaneId, tabs: [tab], activeTab: tab.id }
+            const idx = afterRemove.findIndex((p) => p.id === targetPaneId)
+            if (idx === -1) return prev
+            const result = [...afterRemove]
+            result.splice(zone === 'left' ? idx : idx + 1, 0, newPane)
+            setSizes(result.map(() => 100 / result.length))
+            return result
+          }
+        })
+
+        return null
+      })
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [panes])
 
   // Divider resize
   const handleDividerDrag = useCallback((index: number, e: React.PointerEvent) => {
@@ -980,10 +1153,8 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
         {panes.map((pane, pi) => (
           <div key={pane.id} style={{ display: 'contents' }}>
             <div
+              data-term-pane={pane.id}
               style={{ width: `calc(${sizes[pi]}% - ${pi < panes.length - 1 ? 1 : 0}px)`, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}
-              onDragOver={(e) => handlePaneDragOver(pane.id, e)}
-              onDrop={(e) => handlePaneDrop(pane.id, e)}
-              onDragLeave={() => setDropTarget(null)}
             >
               {/* Tab bar — terminal tabs + add/close inline */}
               <div style={{
@@ -994,9 +1165,7 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
                 {pane.tabs.map((tab) => (
                   <div
                     key={tab.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(tab.id, pane.id, e)}
-                    onDragEnd={handleDragEnd}
+                    onPointerDown={(e) => handleTermPointerDown(tab.id, pane.id, e)}
                     onClick={() => activateTab(pane.id, tab.id)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 5,
@@ -1004,7 +1173,6 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
                       fontSize: 12, fontFamily: '"JetBrains Mono", monospace',
                       color: tab.id === pane.activeTab ? 'var(--hb-fg)' : 'var(--hb-text-muted)',
                       borderBottom: tab.id === pane.activeTab ? '1px solid #528bff' : '1px solid transparent',
-                      userSelect: 'none',
                     }}
                   >
                     <TerminalIcon size={11} />
@@ -1054,12 +1222,9 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
                   )
                 })}
 
-                {/* Invisible drag capture overlay — only during drag, sits above terminal canvas */}
+                {/* Pointer drag capture overlay — only during drag, sits above terminal canvas */}
                 {dragInfo && (
                   <div
-                    onDragOver={(e) => handlePaneDragOver(pane.id, e)}
-                    onDrop={(e) => handlePaneDrop(pane.id, e)}
-                    onDragLeave={() => setDropTarget(null)}
                     style={{
                       position: 'absolute', inset: 0, zIndex: 20,
                       backgroundColor: 'transparent',

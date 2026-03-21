@@ -5,6 +5,18 @@ html, body {
   scrollbar-width: none;
 }
 
+/* Hide native selection highlight everywhere except editors/inputs */
+::selection {
+  background: transparent;
+  color: inherit;
+}
+.cm-editor ::selection,
+input::selection,
+textarea::selection {
+  background: Highlight;
+  color: HighlightText;
+}
+
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
   display: none;
@@ -152,7 +164,7 @@ body::-webkit-scrollbar {
 
 /* LSP diagnostics styling */
 .cm-diagnostic-error {
-  border-bottom: 2px wavy #e06c75 !important;
+  border-bottom: 2px wavy #ff453a !important;
 }
 .cm-diagnostic-warning {
   border-bottom: 2px wavy #e5c07b !important;
@@ -160,32 +172,34 @@ body::-webkit-scrollbar {
 .cm-diagnostic-info {
   border-bottom: 2px wavy #61afef !important;
 }
-.cm-lint-marker-error {
-  content: "" !important;
-  width: 8px !important;
-  height: 8px !important;
-  border-radius: 50% !important;
-  background: #e06c75 !important;
-  box-shadow: 0 0 6px rgba(224, 108, 117, 0.4) !important;
+.cm-gutter-lint .cm-gutterElement {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 4px !important;
 }
-.cm-lint-marker-warning {
-  content: "" !important;
-  width: 8px !important;
-  height: 8px !important;
-  border-radius: 50% !important;
-  background: #e5c07b !important;
-  box-shadow: 0 0 6px rgba(229, 192, 123, 0.4) !important;
-}
+.cm-lint-marker-error,
+.cm-lint-marker-warning,
 .cm-lint-marker-info {
   content: "" !important;
   width: 8px !important;
   height: 8px !important;
   border-radius: 50% !important;
+}
+.cm-lint-marker-error {
+  background: #ff453a !important;
+  box-shadow: 0 0 6px rgba(255, 69, 58, 0.4) !important;
+}
+.cm-lint-marker-warning {
+  background: #e5c07b !important;
+  box-shadow: 0 0 6px rgba(229, 192, 123, 0.4) !important;
+}
+.cm-lint-marker-info {
   background: #61afef !important;
 }
 .cm-lintRange-error {
   background: rgba(224, 108, 117, 0.08) !important;
-  text-decoration: wavy underline #e06c75 !important;
+  text-decoration: wavy underline #ff453a !important;
   text-decoration-skip-ink: none !important;
   text-underline-offset: 3px !important;
 }
@@ -216,7 +230,7 @@ body::-webkit-scrollbar {
   padding: 4px 0 !important;
 }
 .cm-diagnostic-error {
-  border-left: 3px solid #e06c75 !important;
+  border-left: 3px solid #ff453a !important;
   padding-left: 8px !important;
 }
 .cm-diagnostic-warning {
@@ -228,7 +242,7 @@ body::-webkit-scrollbar {
   padding-left: 8px !important;
 }
 .cm-lintPoint::after {
-  border-bottom-color: #e06c75 !important;
+  border-bottom-color: #ff453a !important;
 }
 .cm-tooltip-hover {
   background: var(--hb-surface) !important;

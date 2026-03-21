@@ -1,12 +1,11 @@
 import { useState, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useVaultStore } from '../stores/vaultStore'
-import { SidebarVaultDropdown } from './SidebarVaultDropdown'
 import { SidebarSearch } from './SidebarSearch'
 import { SidebarFileList } from './SidebarFileList'
 import { SidebarContextMenu, type ContextMenuState } from './SidebarContextMenu'
 import { useToastStore } from './Toast'
-import { ArrowUpDown, PanelLeftClose } from 'lucide-react'
+import { ArrowUpDown } from 'lucide-react'
 import { usePlatform } from '../hooks/usePlatform'
 
 interface SidebarProps {
@@ -17,7 +16,6 @@ export function Sidebar({ onFileClick }: SidebarProps) {
   const sidebarOpen = useVaultStore((s) => s.sidebarOpen)
   const sidebarSort = useVaultStore((s) => s.sidebarSort)
   const setSidebarSort = useVaultStore((s) => s.setSidebarSort)
-  const toggleSidebar = useVaultStore((s) => s.toggleSidebar)
   const vaultPath = useVaultStore((s) => s.vaultPath)
   const loadFileTree = useVaultStore((s) => s.loadFileTree)
   const [searchQuery, setSearchQuery] = useState('')
@@ -103,30 +101,6 @@ export function Sidebar({ onFileClick }: SidebarProps) {
       onDrop={handleDrop}
     >
       <div style={{ height: titlebarSpacerHeight }} /> {/* titlebar spacer — clears traffic lights on macOS, custom titlebar on Win/Linux */}
-      <div style={{ display: 'flex', alignItems: 'center', height: 36, padding: '0 6px', borderBottom: '1px solid var(--hb-border)', gap: 2, flexShrink: 0 }}>
-        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-          <SidebarVaultDropdown />
-        </div>
-        <button
-          onClick={toggleSidebar}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--hb-text-muted)',
-            cursor: 'pointer',
-            padding: 4,
-            display: 'flex',
-            alignItems: 'center',
-            flexShrink: 0,
-            borderRadius: 4,
-          }}
-          title="Close sidebar (Cmd+B)"
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--hb-text-muted)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--hb-text-muted)')}
-        >
-          <PanelLeftClose size={13} strokeWidth={1.5} />
-        </button>
-      </div>
       <div style={{ padding: '5px 8px', display: 'flex', gap: 4, alignItems: 'center' }}>
         <div style={{ flex: 1 }}>
           <SidebarSearch value={searchQuery} onChange={setSearchQuery} />
