@@ -309,6 +309,46 @@ body::-webkit-scrollbar {
   50% { opacity: 0.3; }
 }
 
+/* CodeMirror search panel — match editor theme */
+.cm-search {
+  background-color: var(--hb-surface, #0a0a0a) !important;
+  color: var(--hb-fg, #fff) !important;
+  border-bottom: 1px solid var(--hb-border, #1a1a1a) !important;
+  font-family: "JetBrains Mono", Menlo, Monaco, monospace !important;
+  font-size: 13px !important;
+}
+.cm-search input,
+.cm-search button {
+  background: var(--hb-bg, #000) !important;
+  color: var(--hb-fg, #fff) !important;
+  border: 1px solid var(--hb-border, #1a1a1a) !important;
+  border-radius: 4px !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  padding: 2px 6px !important;
+}
+.cm-search button:hover {
+  background: var(--hb-hover, #111) !important;
+}
+.cm-search label {
+  color: var(--hb-text-muted, #999) !important;
+  font-size: 12px !important;
+}
+.cm-searchMatch {
+  background-color: rgba(82, 139, 255, 0.25) !important;
+}
+.cm-searchMatch-selected {
+  background-color: rgba(82, 139, 255, 0.5) !important;
+}
+
+/* Indentation markers — subtle lines */
+.cm-indentation-marker {
+  opacity: 0.15;
+}
+.cm-indentation-marker.active {
+  opacity: 0.3;
+}
+
 /* Vim mode — command bar + cursor styling */
 .cm-vim-panel {
   background-color: var(--hb-surface, #0a0a0a) !important;

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
-import { EditorView } from '@codemirror/view'
+import { EditorView, keymap } from '@codemirror/view'
+import { search, searchKeymap } from '@codemirror/search'
+import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 import { Compartment, type Extension } from '@codemirror/state'
 import { vim, Vim } from '@replit/codemirror-vim'
 import { useEditorStore } from '../stores/editorStore'
@@ -1325,6 +1327,7 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
         '&': { fontSize: `${fontSize}px` },
         '.cm-gutters': { fontSize: `${fontSize}px` },
       })),
+      search(), keymap.of(searchKeymap), indentationMarkers(),
       ...(vimMode ? [vim()] : []),
       ...cmTheme,
       ...(langExt ? [langExt] : []),

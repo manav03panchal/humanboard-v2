@@ -6,12 +6,17 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { LigaturesAddon } from '@xterm/addon-ligatures'
+import { SearchAddon } from '@xterm/addon-search'
+import { SerializeAddon } from '@xterm/addon-serialize'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
+import { ImageAddon } from '@xterm/addon-image'
 import { spawn } from 'tauri-pty'
 import { useThemeStore } from './theme'
 
 interface ManagedTerminal {
   term: Terminal
   fitAddon: FitAddon
+  searchAddon: SearchAddon
   pty: ReturnType<typeof spawn>
   container: HTMLDivElement
   onTitleChange?: (title: string) => void
@@ -104,7 +109,9 @@ export function createTerminal(id: number, cwd?: string): ManagedTerminal {
     try { pty.write(data) } catch {}
   })
 
-  const managed: ManagedTerminal = { term, fitAddon, pty, container }
+  const searchAddon = new SearchAddon()
+  term.loadAddon(searchAddon)
+  const managed: ManagedTerminal = { term, fitAddon, searchAddon, pty, container }
   terminals.set(id, managed)
 
   // Handle PTY exit (shell exited)
@@ -132,6 +139,19 @@ function openTerminal(managed: ManagedTerminal) {
     webgl.onContextLoss(() => webgl.dispose())
     term.loadAddon(webgl)
   } catch {}
+
+  // Unicode 11 — proper width for CJK, emoji
+  try {
+    const unicode11 = new Unicode11Addon()
+    term.loadAddon(unicode11)
+    term.unicode.activeVersion = '11'
+  } catch {}
+
+  // Inline images (sixel protocol)
+  try { term.loadAddon(new ImageAddon()) } catch {}
+
+  // Serialize — for future session persistence
+  try { term.loadAddon(new SerializeAddon()) } catch {}
 
   try { fitAddon.fit() } catch {}
 
@@ -217,6 +237,16 @@ export function refitAll() {
       managed.fitAddon.fit()
       managed.pty.resize(managed.term.cols, managed.term.rows)
     } catch {}
+  }
+}
+
+export function searchInTerminal(id: number, query: string) {
+  const managed = terminals.get(id)
+  if (!managed) return
+  if (query) {
+    managed.searchAddon.findNext(query)
+  } else {
+    managed.searchAddon.clearDecorations()
   }
 }
 

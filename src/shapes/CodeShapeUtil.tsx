@@ -19,6 +19,9 @@ import { EditorView } from '@codemirror/view'
 import { vim } from '@replit/codemirror-vim'
 import { useEditorStore } from '../stores/editorStore'
 import { useCallback, useRef, useEffect, useMemo, useState } from 'react'
+import { search, searchKeymap } from '@codemirror/search'
+import { indentationMarkers } from '@replit/codemirror-indentation-markers'
+import { keymap } from '@codemirror/view'
 import type { Extension } from '@codemirror/state'
 
 declare module 'tldraw' {
@@ -155,7 +158,7 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
   )
 
   const extensions = useMemo(
-    () => [EditorView.lineWrapping, ...(vimMode ? [vim()] : []), ...cmTheme, ...(langExt ? [langExt] : []), ...lspExt],
+    () => [EditorView.lineWrapping, search(), keymap.of(searchKeymap), indentationMarkers(), ...(vimMode ? [vim()] : []), ...cmTheme, ...(langExt ? [langExt] : []), ...lspExt],
     [cmTheme, langExt, lspExt, vimMode]
   )
 
