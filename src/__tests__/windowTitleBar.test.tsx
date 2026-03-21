@@ -12,6 +12,7 @@ vi.mock('@tauri-apps/api/window', () => ({
     minimize: vi.fn(),
     toggleMaximize: vi.fn(),
     close: vi.fn(),
+    setDecorations: vi.fn(),
   })),
 }))
 

@@ -5,7 +5,10 @@ import { usePlatform } from '../hooks/usePlatform'
 export function WindowTitleBar() {
   const os = usePlatform()
 
-  if (os === 'macos' || os === 'linux') return null
+  // macOS: native traffic light buttons via titleBarStyle "Overlay"
+  // Linux: native system decorations
+  // Windows: custom titlebar (no native dark theme support)
+  if (os !== 'windows') return null
 
   const appWindow = getCurrentWindow()
 
