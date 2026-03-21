@@ -15,6 +15,7 @@ interface ManagedTerminal {
   pty: ReturnType<typeof spawn>
   container: HTMLDivElement
   onTitleChange?: (title: string) => void
+  onExit?: () => void
 }
 
 const terminals = new Map<number, ManagedTerminal>()
@@ -105,6 +106,11 @@ export function createTerminal(id: number, cwd?: string): ManagedTerminal {
 
   const managed: ManagedTerminal = { term, fitAddon, pty, container }
   terminals.set(id, managed)
+
+  // Handle PTY exit (shell exited)
+  pty.onExit(() => {
+    managed.onExit?.()
+  })
 
   // Click to focus
   container.addEventListener('click', () => term.focus())

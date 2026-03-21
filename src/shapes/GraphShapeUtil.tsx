@@ -159,10 +159,14 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
 
     simulationRef.current = simulation
 
+    let tickCount = 0
     simulation.on('tick', () => {
+      tickCount++
+      // Throttle React updates — render every 3rd tick to reduce re-render overhead
+      if (tickCount % 3 !== 0 && simulation.alpha() > simulation.alphaMin() + 0.01) return
+
       const positions = new Map<string, { x: number; y: number }>()
       for (const node of nodes) {
-        // Clamp positions within bounds
         node.x = Math.max(padding, Math.min(w - padding, node.x ?? cx))
         node.y = Math.max(padding, Math.min(svgHeight - padding, node.y ?? cy))
         positions.set(node.id, { x: node.x, y: node.y })

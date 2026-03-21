@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, memo } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { getFileIcon } from '../lib/fileIcons'
 import { getLanguageName } from '../lib/language'
@@ -65,107 +65,9 @@ function buildTree(entries: TreeNode[]): TreeNodeData[] {
   return root
 }
 
-interface SidebarTreeViewProps {
-  entries: TreeNode[]
-  searchQuery: string
-  onFileClick: (path: string) => void
-  onContextMenu?: (state: ContextMenuState) => void
-}
+// ─── Leaf file item (memoized — many instances in large trees) ───
 
-export function SidebarTreeView({ entries, searchQuery, onFileClick, onContextMenu }: SidebarTreeViewProps) {
-  const tree = useMemo(() => buildTree(entries), [entries])
-
-  const filtered = useMemo(() => {
-    if (!searchQuery) return null
-    const q = searchQuery.toLowerCase()
-    return entries
-      .filter((f) => !f.isDir && f.name.toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name))
-  }, [entries, searchQuery])
-
-  if (filtered) {
-    return (
-      <div style={{ overflow: 'auto', flex: 1 }}>
-        {filtered.map((f) => (
-          <TreeFileItem key={f.path} name={f.name} path={f.path} depth={0} onClick={onFileClick} onContextMenu={onContextMenu} />
-        ))}
-        <div style={{ height: 32 }} />
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ overflow: 'auto', flex: 1 }}>
-      {tree.map((node) => (
-        <TreeItem key={node.path} node={node} depth={0} onFileClick={onFileClick} onContextMenu={onContextMenu} />
-      ))}
-      <div style={{ height: 32 }} />
-    </div>
-  )
-}
-
-function TreeItem({
-  node,
-  depth,
-  onFileClick,
-  onContextMenu,
-}: {
-  node: TreeNodeData
-  depth: number
-  onFileClick: (path: string) => void
-  onContextMenu?: (state: ContextMenuState) => void
-}) {
-  const [expanded, setExpanded] = useState(depth < 1)
-
-  if (!node.isDir) {
-    return <TreeFileItem name={node.name} path={node.path} depth={depth} onClick={onFileClick} onContextMenu={onContextMenu} />
-  }
-
-  const Icon = getFileIcon(node.path, true, expanded)
-  const Chevron = expanded ? ChevronDown : ChevronRight
-
-  return (
-    <div>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        onContextMenu={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          onContextMenu?.({ x: e.clientX, y: e.clientY, path: node.path, isDir: true })
-        }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          padding: '2px 8px',
-          paddingLeft: 8 + depth * 14,
-          backgroundColor: 'transparent',
-          border: 'none',
-          color: 'var(--hb-fg)',
-          fontSize: 14,
-          cursor: 'pointer',
-          width: '100%',
-          textAlign: 'left',
-          borderRadius: 3,
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-      >
-        <Chevron size={11} strokeWidth={1.5} color="var(--hb-text-muted)" />
-        <Icon size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
-        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {node.name}
-        </span>
-      </button>
-      {expanded &&
-        node.children.map((child) => (
-          <TreeItem key={child.path} node={child} depth={depth + 1} onFileClick={onFileClick} onContextMenu={onContextMenu} />
-        ))}
-    </div>
-  )
-}
-
-function TreeFileItem({
+const TreeFileItem = memo(function TreeFileItem({
   name,
   path,
   depth,
@@ -256,5 +158,109 @@ function TreeFileItem({
         </span>
       )}
     </button>
+  )
+})
+
+// ─── Directory tree item (memoized) ───
+
+const TreeItem = memo(function TreeItem({
+  node,
+  depth,
+  onFileClick,
+  onContextMenu,
+}: {
+  node: TreeNodeData
+  depth: number
+  onFileClick: (path: string) => void
+  onContextMenu?: (state: ContextMenuState) => void
+}) {
+  const [expanded, setExpanded] = useState(depth < 1)
+
+  if (!node.isDir) {
+    return <TreeFileItem name={node.name} path={node.path} depth={depth} onClick={onFileClick} onContextMenu={onContextMenu} />
+  }
+
+  const Icon = getFileIcon(node.path, true, expanded)
+  const Chevron = expanded ? ChevronDown : ChevronRight
+
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          onContextMenu?.({ x: e.clientX, y: e.clientY, path: node.path, isDir: true })
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          padding: '2px 8px',
+          paddingLeft: 8 + depth * 14,
+          backgroundColor: 'transparent',
+          border: 'none',
+          color: 'var(--hb-fg)',
+          fontSize: 14,
+          cursor: 'pointer',
+          width: '100%',
+          textAlign: 'left',
+          borderRadius: 3,
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+      >
+        <Chevron size={11} strokeWidth={1.5} color="var(--hb-text-muted)" />
+        <Icon size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {node.name}
+        </span>
+      </button>
+      {expanded &&
+        node.children.map((child) => (
+          <TreeItem key={child.path} node={child} depth={depth + 1} onFileClick={onFileClick} onContextMenu={onContextMenu} />
+        ))}
+    </div>
+  )
+})
+
+// ─── Main tree view ───
+
+interface SidebarTreeViewProps {
+  entries: TreeNode[]
+  searchQuery: string
+  onFileClick: (path: string) => void
+  onContextMenu?: (state: ContextMenuState) => void
+}
+
+export function SidebarTreeView({ entries, searchQuery, onFileClick, onContextMenu }: SidebarTreeViewProps) {
+  const tree = useMemo(() => buildTree(entries), [entries])
+
+  const filtered = useMemo(() => {
+    if (!searchQuery) return null
+    const q = searchQuery.toLowerCase()
+    return entries
+      .filter((f) => !f.isDir && f.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [entries, searchQuery])
+
+  if (filtered) {
+    return (
+      <div style={{ overflow: 'auto', flex: 1 }}>
+        {filtered.map((f) => (
+          <TreeFileItem key={f.path} name={f.name} path={f.path} depth={0} onClick={onFileClick} onContextMenu={onContextMenu} />
+        ))}
+        <div style={{ height: 32 }} />
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ overflow: 'auto', flex: 1 }}>
+      {tree.map((node) => (
+        <TreeItem key={node.path} node={node} depth={0} onFileClick={onFileClick} onContextMenu={onContextMenu} />
+      ))}
+      <div style={{ height: 32 }} />
+    </div>
   )
 }

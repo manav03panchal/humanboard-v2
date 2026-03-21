@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, useState } from 'react'
+import { useCallback, useRef, useEffect, useState, memo } from 'react'
 import { Columns2, LayoutGrid, PanelLeft } from 'lucide-react'
 import {
   Tldraw,
@@ -74,7 +74,7 @@ function findNonOverlappingPosition(editor: Editor, baseX: number, baseY: number
   return { x, y }
 }
 
-export function StatusBar({ ideMode }: { ideMode?: boolean }) {
+export const StatusBar = memo(function StatusBar({ ideMode }: { ideMode?: boolean }) {
   const [zoom, setZoom] = useState(100)
   const [lspStatuses, setLspStatuses] = useState<Map<string, string>>(new Map())
   const sidebarOpen = useVaultStore((s) => s.sidebarOpen)
@@ -214,7 +214,7 @@ export function StatusBar({ ideMode }: { ideMode?: boolean }) {
       <span>{zoom}%</span>
     </div>
   )
-}
+})
 
 export function Canvas() {
   useFileWatcher()
@@ -299,64 +299,29 @@ export function Canvas() {
     [vaultPath]
   )
 
-  // Cmd+` shortcut to create terminal
+  // Canvas keyboard shortcuts (Cmd+` terminal, Cmd+N note, Cmd+G graph)
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === '`') {
-        e.preventDefault()
-        const editor = editorRef.current
-        if (!editor) return
-        const { x, y } = editor.getViewportPageBounds().center
-        editor.createShape({
-          type: 'terminal-shape',
-          x: x - 350,
-          y: y - 210,
-          props: { w: 700, h: 420, shell: '' },
-        })
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      const editor = editorRef.current
+      if (!editor) return
 
-  // Cmd+N shortcut to create note
-  useEffect(() => {
-    const handleNoteKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+      if (e.key === '`') {
         e.preventDefault()
-        const editor = editorRef.current
-        if (!editor) return
         const { x, y } = editor.getViewportPageBounds().center
-        editor.createShape({
-          type: 'note-shape',
-          x: x - 150,
-          y: y - 125,
-          props: { w: 300, h: 250, content: '' },
-        })
+        editor.createShape({ type: 'terminal-shape', x: x - 350, y: y - 210, props: { w: 700, h: 420, shell: '' } })
+      } else if (e.key === 'n') {
+        e.preventDefault()
+        const { x, y } = editor.getViewportPageBounds().center
+        editor.createShape({ type: 'note-shape', x: x - 150, y: y - 125, props: { w: 300, h: 250, content: '' } })
+      } else if (e.key === 'g') {
+        e.preventDefault()
+        const { x, y } = editor.getViewportPageBounds().center
+        editor.createShape({ type: 'graph-shape', x: x - 300, y: y - 250, props: { w: 600, h: 500 } })
       }
     }
-    window.addEventListener('keydown', handleNoteKeyDown)
-    return () => window.removeEventListener('keydown', handleNoteKeyDown)
-  }, [])
-
-  // Cmd+G shortcut to create graph view
-  useEffect(() => {
-    const handleGraphKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'g') {
-        e.preventDefault()
-        const editor = editorRef.current
-        if (!editor) return
-        const { x, y } = editor.getViewportPageBounds().center
-        editor.createShape({
-          type: 'graph-shape',
-          x: x - 300,
-          y: y - 250,
-          props: { w: 600, h: 500 },
-        })
-      }
-    }
-    window.addEventListener('keydown', handleGraphKeyDown)
-    return () => window.removeEventListener('keydown', handleGraphKeyDown)
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
   }, [])
 
 

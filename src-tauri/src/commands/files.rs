@@ -50,54 +50,42 @@ pub async fn write_file(vault_root: String, file_path: String, content: String) 
 }
 
 #[tauri::command]
-pub fn copy_file_into_vault(
+pub async fn copy_file_into_vault(
     source_path: String,
     vault_root: String,
     dest_relative: String,
 ) -> Result<String, String> {
-    let src = Path::new(&source_path);
-    if !src.exists() {
-        return Err(format!("Source file not found: {source_path}"));
-    }
-    let root = fs::canonicalize(&vault_root).map_err(|e| format!("Invalid vault root: {e}"))?;
-    let dest = normalize_path(&root.join(&dest_relative));
-    // Ensure dest is within vault
-    if !dest.starts_with(&root) {
-        return Err("Destination path traversal denied".into());
-    }
-    // Create parent dirs if needed
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Cannot create directory: {e}"))?;
-    }
-    // Handle name collision — append (1), (2), etc.
-    let final_dest = if dest.exists() {
-        let stem = dest
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
-        let ext = dest
-            .extension()
-            .map(|e| format!(".{}", e.to_string_lossy()))
-            .unwrap_or_default();
-        let parent = dest.parent().unwrap_or(&root);
-        let mut candidate = dest.clone();
-        let mut i = 1;
-        while candidate.exists() {
-            candidate = parent.join(format!("{stem} ({i}){ext}"));
-            i += 1;
+    tokio::task::spawn_blocking(move || {
+        let src = Path::new(&source_path);
+        if !src.exists() {
+            return Err(format!("Source file not found: {source_path}"));
         }
-        candidate
-    } else {
-        dest
-    };
-    fs::copy(src, &final_dest).map_err(|e| format!("Cannot copy file: {e}"))?;
-    let relative = final_dest
-        .strip_prefix(&root)
-        .unwrap_or(&final_dest)
-        .to_string_lossy()
-        .to_string();
-    Ok(relative)
+        let root = fs::canonicalize(&vault_root).map_err(|e| format!("Invalid vault root: {e}"))?;
+        let dest = normalize_path(&root.join(&dest_relative));
+        if !dest.starts_with(&root) {
+            return Err("Destination path traversal denied".into());
+        }
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("Cannot create directory: {e}"))?;
+        }
+        let final_dest = if dest.exists() {
+            let stem = dest.file_stem().unwrap_or_default().to_string_lossy().to_string();
+            let ext = dest.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+            let parent = dest.parent().unwrap_or(&root);
+            let mut candidate = dest.clone();
+            let mut i = 1;
+            while candidate.exists() {
+                candidate = parent.join(format!("{stem} ({i}){ext}"));
+                i += 1;
+            }
+            candidate
+        } else {
+            dest
+        };
+        fs::copy(src, &final_dest).map_err(|e| format!("Cannot copy file: {e}"))?;
+        let relative = final_dest.strip_prefix(&root).unwrap_or(&final_dest).to_string_lossy().to_string();
+        Ok(relative)
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -137,43 +125,51 @@ fn validate_new_path(vault_root: &str, requested: &str) -> Result<PathBuf, Strin
 }
 
 #[tauri::command]
-pub fn create_file(vault_root: String, file_path: String) -> Result<(), String> {
-    let full = validate_new_path(&vault_root, &file_path)?;
-    if let Some(parent) = full.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Cannot create parent dirs: {e}"))?;
-    }
-    fs::write(&full, "").map_err(|e| format!("Cannot create file: {e}"))
+pub async fn create_file(vault_root: String, file_path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let full = validate_new_path(&vault_root, &file_path)?;
+        if let Some(parent) = full.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("Cannot create parent dirs: {e}"))?;
+        }
+        fs::write(&full, "").map_err(|e| format!("Cannot create file: {e}"))
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn create_dir(vault_root: String, dir_path: String) -> Result<(), String> {
-    let full = validate_new_path(&vault_root, &dir_path)?;
-    fs::create_dir_all(&full).map_err(|e| format!("Cannot create directory: {e}"))
+pub async fn create_dir(vault_root: String, dir_path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let full = validate_new_path(&vault_root, &dir_path)?;
+        fs::create_dir_all(&full).map_err(|e| format!("Cannot create directory: {e}"))
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn rename_entry(vault_root: String, old_path: String, new_path: String) -> Result<(), String> {
-    let old_full = validate_path(&vault_root, &old_path)?;
-    let new_full = validate_new_path(&vault_root, &new_path)?;
-    if let Some(parent) = new_full.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Cannot create parent dirs: {e}"))?;
-    }
-    fs::rename(&old_full, &new_full).map_err(|e| format!("Cannot rename: {e}"))
+pub async fn rename_entry(vault_root: String, old_path: String, new_path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let old_full = validate_path(&vault_root, &old_path)?;
+        let new_full = validate_new_path(&vault_root, &new_path)?;
+        if let Some(parent) = new_full.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("Cannot create parent dirs: {e}"))?;
+        }
+        fs::rename(&old_full, &new_full).map_err(|e| format!("Cannot rename: {e}"))
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn delete_entry(vault_root: String, entry_path: String) -> Result<(), String> {
-    let path = validate_path(&vault_root, &entry_path)?;
-    let sym_metadata = fs::symlink_metadata(&path).map_err(|e| format!("Cannot access: {e}"))?;
-    if sym_metadata.file_type().is_symlink() {
-        return fs::remove_file(&path).map_err(|e| format!("Cannot delete symlink: {e}"));
-    }
-    let metadata = fs::metadata(&path).map_err(|e| format!("Cannot access: {e}"))?;
-    if metadata.is_dir() {
-        fs::remove_dir_all(&path).map_err(|e| format!("Cannot delete directory: {e}"))
-    } else {
-        fs::remove_file(&path).map_err(|e| format!("Cannot delete file: {e}"))
-    }
+pub async fn delete_entry(vault_root: String, entry_path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let path = validate_path(&vault_root, &entry_path)?;
+        let sym_metadata = fs::symlink_metadata(&path).map_err(|e| format!("Cannot access: {e}"))?;
+        if sym_metadata.file_type().is_symlink() {
+            return fs::remove_file(&path).map_err(|e| format!("Cannot delete symlink: {e}"));
+        }
+        let metadata = fs::metadata(&path).map_err(|e| format!("Cannot access: {e}"))?;
+        if metadata.is_dir() {
+            fs::remove_dir_all(&path).map_err(|e| format!("Cannot delete directory: {e}"))
+        } else {
+            fs::remove_file(&path).map_err(|e| format!("Cannot delete file: {e}"))
+        }
+    }).await.map_err(|e| e.to_string())?
 }
 
 const MAX_RECURSION_DEPTH: u32 = 32;
@@ -232,110 +228,110 @@ mod tests {
         TempDir::new().unwrap()
     }
 
-    #[test]
-    fn test_create_file() {
+    #[tokio::test]
+    async fn test_create_file() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
-        create_file(root.clone(), "hello.txt".into()).unwrap();
+        create_file(root.clone(), "hello.txt".into()).await.unwrap();
         assert!(dir.path().join("hello.txt").exists());
         assert_eq!(stdfs::read_to_string(dir.path().join("hello.txt")).unwrap(), "");
     }
 
-    #[test]
-    fn test_create_file_nested() {
+    #[tokio::test]
+    async fn test_create_file_nested() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
-        create_file(root.clone(), "sub/deep/file.md".into()).unwrap();
+        create_file(root.clone(), "sub/deep/file.md".into()).await.unwrap();
         assert!(dir.path().join("sub/deep/file.md").exists());
     }
 
-    #[test]
-    fn test_create_file_path_traversal() {
+    #[tokio::test]
+    async fn test_create_file_path_traversal() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
-        let result = create_file(root.clone(), "../../evil.txt".into());
+        let result = create_file(root.clone(), "../../evil.txt".into()).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Path traversal denied"));
     }
 
-    #[test]
-    fn test_create_dir() {
+    #[tokio::test]
+    async fn test_create_dir() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
-        create_dir(root.clone(), "new_folder".into()).unwrap();
+        create_dir(root.clone(), "new_folder".into()).await.unwrap();
         assert!(dir.path().join("new_folder").is_dir());
     }
 
-    #[test]
-    fn test_create_dir_nested() {
+    #[tokio::test]
+    async fn test_create_dir_nested() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
-        create_dir(root.clone(), "a/b/c".into()).unwrap();
+        create_dir(root.clone(), "a/b/c".into()).await.unwrap();
         assert!(dir.path().join("a/b/c").is_dir());
     }
 
-    #[test]
-    fn test_create_dir_path_traversal() {
+    #[tokio::test]
+    async fn test_create_dir_path_traversal() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
-        let result = create_dir(root.clone(), "../../evil_dir".into());
+        let result = create_dir(root.clone(), "../../evil_dir".into()).await;
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_rename_entry_file() {
+    #[tokio::test]
+    async fn test_rename_entry_file() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
         stdfs::write(dir.path().join("old.txt"), "content").unwrap();
-        rename_entry(root.clone(), "old.txt".into(), "new.txt".into()).unwrap();
+        rename_entry(root.clone(), "old.txt".into(), "new.txt".into()).await.unwrap();
         assert!(!dir.path().join("old.txt").exists());
         assert!(dir.path().join("new.txt").exists());
         assert_eq!(stdfs::read_to_string(dir.path().join("new.txt")).unwrap(), "content");
     }
 
-    #[test]
-    fn test_rename_entry_dir() {
+    #[tokio::test]
+    async fn test_rename_entry_dir() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
         stdfs::create_dir(dir.path().join("old_dir")).unwrap();
-        rename_entry(root.clone(), "old_dir".into(), "new_dir".into()).unwrap();
+        rename_entry(root.clone(), "old_dir".into(), "new_dir".into()).await.unwrap();
         assert!(!dir.path().join("old_dir").exists());
         assert!(dir.path().join("new_dir").is_dir());
     }
 
-    #[test]
-    fn test_rename_entry_path_traversal() {
+    #[tokio::test]
+    async fn test_rename_entry_path_traversal() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
         stdfs::write(dir.path().join("file.txt"), "").unwrap();
-        let result = rename_entry(root.clone(), "file.txt".into(), "../../evil.txt".into());
+        let result = rename_entry(root.clone(), "file.txt".into(), "../../evil.txt".into()).await;
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_delete_entry_file() {
+    #[tokio::test]
+    async fn test_delete_entry_file() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
         stdfs::write(dir.path().join("to_delete.txt"), "bye").unwrap();
-        delete_entry(root.clone(), "to_delete.txt".into()).unwrap();
+        delete_entry(root.clone(), "to_delete.txt".into()).await.unwrap();
         assert!(!dir.path().join("to_delete.txt").exists());
     }
 
-    #[test]
-    fn test_delete_entry_dir() {
+    #[tokio::test]
+    async fn test_delete_entry_dir() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
         stdfs::create_dir(dir.path().join("to_delete_dir")).unwrap();
         stdfs::write(dir.path().join("to_delete_dir/child.txt"), "").unwrap();
-        delete_entry(root.clone(), "to_delete_dir".into()).unwrap();
+        delete_entry(root.clone(), "to_delete_dir".into()).await.unwrap();
         assert!(!dir.path().join("to_delete_dir").exists());
     }
 
-    #[test]
-    fn test_delete_entry_nonexistent() {
+    #[tokio::test]
+    async fn test_delete_entry_nonexistent() {
         let dir = setup();
         let root = dir.path().to_string_lossy().to_string();
-        let result = delete_entry(root.clone(), "nonexistent.txt".into());
+        let result = delete_entry(root.clone(), "nonexistent.txt".into()).await;
         assert!(result.is_err());
     }
 }

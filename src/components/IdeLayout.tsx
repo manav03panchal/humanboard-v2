@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { EditorView } from '@codemirror/view'
+import { Compartment, type Extension } from '@codemirror/state'
 import { vim } from '@replit/codemirror-vim'
 import { useEditorStore } from '../stores/editorStore'
 import CodeMirror from '@uiw/react-codemirror'
@@ -14,7 +15,7 @@ import { convertFileSrc } from '@tauri-apps/api/core'
 import { IMAGE_EXTENSIONS as IMAGE_EXTS, MARKDOWN_EXTENSIONS as MD_EXTS, getExt } from '../lib/fileTypes'
 import { useFileStore } from '../stores/fileStore'
 import { useVaultStore } from '../stores/vaultStore'
-import { getLanguageExtension } from '../lib/language'
+import { getLanguageExtension, loadLanguageExtension } from '../lib/language'
 import { buildCodeMirrorTheme, useThemeStore } from '../lib/theme'
 import { getFileIcon } from '../lib/fileIcons'
 
@@ -242,6 +243,33 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
     })
   }, [openFiles, onClose])
 
+  // Listen for file-open events (sidebar clicks) — activate existing tab or add new one
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { filePath } = (e as CustomEvent).detail
+      if (!filePath) return
+      setRootPane((prev) => {
+        // If file is already in a tab, just activate it
+        const leaf = findLeafWithTab(prev, filePath)
+        if (leaf) {
+          useEditorStore.getState().setActiveFile(filePath)
+          return updateLeaf(prev, leaf.id, (l) => ({ ...l, activeTab: filePath }))
+        }
+        // Not in any pane — add to first leaf (sync effect will also handle this via openFiles)
+        const addToFirst = (node: PaneNode): PaneNode => {
+          if (node.type === 'leaf') {
+            return { ...node, tabs: [...node.tabs, filePath], activeTab: filePath }
+          }
+          return { ...node, children: [addToFirst(node.children[0]), ...node.children.slice(1)] }
+        }
+        useEditorStore.getState().setActiveFile(filePath)
+        return addToFirst(prev)
+      })
+    }
+    window.addEventListener('humanboard:open-file', handler)
+    return () => window.removeEventListener('humanboard:open-file', handler)
+  }, [])
+
   const blockZoom = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) e.preventDefault()
   }, [])
@@ -305,31 +333,31 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
   const findFirstLeaf = useCallback((node: PaneNode): LeafPane | null =>
     node.type === 'leaf' ? node : findFirstLeaf(node.children[0]), [])
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts — use ref to avoid re-registering on every pane tree change
+  const rootPaneRef = useRef(rootPane)
+  rootPaneRef.current = rootPane
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey
 
-      // Ctrl+\ — split pane
       if (meta && e.key === '\\') {
         e.preventDefault()
-        const leaf = findFirstLeaf(rootPane)
+        const leaf = findFirstLeaf(rootPaneRef.current)
         if (leaf) handleSplitPane(leaf.id, 'horizontal')
         return
       }
 
-      // Ctrl+W — close active tab
       if (meta && e.key === 'w') {
         e.preventDefault()
-        const leaf = findFirstLeaf(rootPane)
+        const leaf = findFirstLeaf(rootPaneRef.current)
         if (leaf?.activeTab) handleCloseTab(leaf.id, leaf.activeTab)
         return
       }
 
-      // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs
       if (meta && e.key === 'Tab') {
         e.preventDefault()
-        const leaf = findFirstLeaf(rootPane)
+        const leaf = findFirstLeaf(rootPaneRef.current)
         if (!leaf || leaf.tabs.length < 2) return
         const idx = leaf.tabs.indexOf(leaf.activeTab)
         const next = e.shiftKey
@@ -339,16 +367,32 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
         return
       }
 
-      // Ctrl+` — toggle terminal
       if (meta && e.key === '`') {
         e.preventDefault()
         setTerminalOpen((v) => !v)
         return
       }
+
+      // Ctrl+= / Ctrl+- / Ctrl+0 — zoom
+      if (meta && (e.key === '=' || e.key === '+')) {
+        e.preventDefault()
+        useEditorStore.getState().zoomIn()
+        return
+      }
+      if (meta && e.key === '-') {
+        e.preventDefault()
+        useEditorStore.getState().zoomOut()
+        return
+      }
+      if (meta && e.key === '0') {
+        e.preventDefault()
+        useEditorStore.getState().resetZoom()
+        return
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [rootPane, handleSplitPane, handleCloseTab, handleActivateTab, findFirstLeaf])
+  }, [handleSplitPane, handleCloseTab, handleActivateTab, findFirstLeaf])
 
   // Terminal panel resize
   const handleTerminalResize = useCallback((e: React.PointerEvent) => {
@@ -533,7 +577,15 @@ function LeafPaneView({ pane, onCloseTab, onActivateTab, onReorderTabs, onDropOn
   const vaultPath = useVaultStore((s) => s.vaultPath)
   const [dropZone, setDropZone] = useState<DropZone | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  const tabBarRef = useRef<HTMLDivElement>(null)
   const [dragOverTabIndex, setDragOverTabIndex] = useState<number | null>(null)
+
+  // Scroll active tab into view
+  useEffect(() => {
+    if (!tabBarRef.current || !pane.activeTab) return
+    const activeEl = tabBarRef.current.querySelector('[data-active-tab="true"]') as HTMLElement | null
+    activeEl?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [pane.activeTab])
   const activeExt = getExt(pane.activeTab ?? '')
   const isMarkdown = MD_EXTS.has(activeExt)
   const isImage = IMAGE_EXTS.has(activeExt)
@@ -603,6 +655,7 @@ function LeafPaneView({ pane, onCloseTab, onActivateTab, onReorderTabs, onDropOn
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}>
       {/* Tab bar */}
       <div
+        ref={tabBarRef}
         onDragLeave={handleTabBarDragLeave}
         style={{
           display: 'flex',
@@ -691,7 +744,7 @@ function LeafPaneView({ pane, onCloseTab, onActivateTab, onReorderTabs, onDropOn
 
 // ─── Tab ───
 
-function Tab({ filePath, isActive, isPreview, onTogglePreview, onClick, onClose, onDragStart, onDragOver, onDrop, showDropIndicator }: {
+const Tab = memo(function Tab({ filePath, isActive, isPreview, onTogglePreview, onClick, onClose, onDragStart, onDragOver, onDrop, showDropIndicator }: {
   filePath: string
   isActive: boolean
   isPreview?: boolean
@@ -712,6 +765,7 @@ function Tab({ filePath, isActive, isPreview, onTogglePreview, onClick, onClose,
   return (
     <div
       draggable
+      data-active-tab={isActive || undefined}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -774,7 +828,7 @@ function Tab({ filePath, isActive, isPreview, onTogglePreview, onClick, onClose,
       )}
     </div>
   )
-}
+})
 
 // ─── Terminal Panel (tabbed) ───
 
@@ -1005,7 +1059,7 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
                           ...p,
                           tabs: p.tabs.map((t) => t.id !== tab.id ? t : { ...t, label: title }),
                         })))
-                      }} />
+                      }} onExit={() => closeTab(pane.id, tab.id)} />
                     </div>
                   )
                 })}
@@ -1066,10 +1120,11 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
   )
 }
 
-function SingleTerminal({ id, visible, onTitle }: { id: number; visible: boolean; onTitle?: (title: string) => void }) {
+function SingleTerminal({ id, visible, onTitle, onExit }: { id: number; visible: boolean; onTitle?: (title: string) => void; onExit?: () => void }) {
   const slotRef = useRef<HTMLDivElement>(null)
   const vaultPath = useVaultStore((s) => s.vaultPath)
   const zedTheme = useThemeStore((s) => s.zedTheme)
+  const fontSize = useEditorStore((s) => s.fontSize)
 
   // Create terminal (if needed) and mount into slot
   useEffect(() => {
@@ -1079,6 +1134,9 @@ function SingleTerminal({ id, visible, onTitle }: { id: number; visible: boolean
         const short = title.split('/').pop()?.split(' ')[0] ?? title
         onTitle(short.substring(0, 20))
       }
+    }
+    if (onExit) {
+      managed.onExit = onExit
     }
     // Don't destroy on unmount — the manager owns the lifecycle
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1109,6 +1167,17 @@ function SingleTerminal({ id, visible, onTitle }: { id: number; visible: boolean
 
   // Theme changes
   useEffect(() => { updateTerminalTheme() }, [zedTheme])
+
+  // Font size changes
+  useEffect(() => {
+    const managed = getTerminal(id)
+    if (!managed) return
+    managed.term.options.fontSize = fontSize
+    try {
+      managed.fitAddon.fit()
+      managed.pty.resize(managed.term.cols, managed.term.rows)
+    } catch {}
+  }, [fontSize, id])
 
   return <div ref={slotRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
 }
@@ -1171,6 +1240,7 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
   const updateContent = useFileStore((s) => s.updateContent)
   const saveFile = useFileStore((s) => s.saveFile)
   const vimMode = useEditorStore((s) => s.vimMode)
+  const fontSize = useEditorStore((s) => s.fontSize)
   const zedTheme = useThemeStore((s) => s.zedTheme)
   const getEditorBackground = useThemeStore((s) => s.getEditorBackground)
   const getEditorForeground = useThemeStore((s) => s.getEditorForeground)
@@ -1181,7 +1251,15 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
   // LSP skipped in IDE mode — canvas shapes already hold LSP plugins for open files,
   // and @codemirror/lsp-client doesn't support multiple views on the same URI.
 
-  const langExt = useMemo(() => getLanguageExtension(filePath), [filePath])
+  const [langExt, setLangExt] = useState<Extension | null>(() => getLanguageExtension(filePath))
+  useEffect(() => {
+    let cancelled = false
+    loadLanguageExtension(filePath).then((ext) => {
+      if (!cancelled && ext) setLangExt(ext)
+    })
+    return () => { cancelled = true }
+  }, [filePath])
+
   const cmTheme = useMemo(
     () => buildCodeMirrorTheme({
       zedTheme, getEditorBackground, getEditorForeground,
@@ -1189,10 +1267,39 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
     }),
     [zedTheme, getEditorBackground, getEditorForeground, getGutterBackground, getLineNumberColor, getActiveLineBackground]
   )
+  const fontCompartment = useMemo(() => new Compartment(), [])
   const extensions = useMemo(
-    () => [EditorView.lineWrapping, ...(vimMode ? [vim()] : []), ...cmTheme, ...(langExt ? [langExt] : [])],
-    [cmTheme, langExt, vimMode]
+    () => [
+      EditorView.lineWrapping,
+      fontCompartment.of(EditorView.theme({
+        '&': { fontSize: `${fontSize}px` },
+        '.cm-gutters': { fontSize: `${fontSize}px` },
+      })),
+      ...(vimMode ? [vim()] : []),
+      ...cmTheme,
+      ...(langExt ? [langExt] : []),
+    ],
+    // fontSize deliberately excluded — handled by compartment reconfigure below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cmTheme, langExt, vimMode, fontCompartment]
   )
+
+  // Reconfigure only the font compartment — no full extension rebuild
+  const editorWrapRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const wrap = editorWrapRef.current
+    if (!wrap) return
+    const cmEl = wrap.querySelector('.cm-editor')
+    if (!cmEl) return
+    const view = EditorView.findFromDOM(cmEl as HTMLElement)
+    if (!view) return
+    view.dispatch({
+      effects: fontCompartment.reconfigure(EditorView.theme({
+        '&': { fontSize: `${fontSize}px` },
+        '.cm-gutters': { fontSize: `${fontSize}px` },
+      })),
+    })
+  }, [fontSize, fontCompartment])
 
   const handleChange = useCallback(
     (value: string) => updateContent(filePath, value),
@@ -1219,7 +1326,7 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
   }
 
   return (
-    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+    <div ref={editorWrapRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden', fontSize }}>
       <CodeMirror
         value={file.content}
         onChange={handleChange}

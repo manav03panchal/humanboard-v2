@@ -42,10 +42,11 @@ const BASIC_SETUP = {
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { useVaultStore } from '../stores/vaultStore'
 import { useFileStore } from '../stores/fileStore'
-import { getLanguageExtension } from '../lib/language'
+import { getLanguageExtension, loadLanguageExtension } from '../lib/language'
 import { NodeTitleBar } from '../components/NodeTitleBar'
 import { buildCodeMirrorTheme, useThemeStore } from '../lib/theme'
 import { EditorView } from '@codemirror/view'
+import type { Extension } from '@codemirror/state'
 import { vim } from '@replit/codemirror-vim'
 import { useEditorStore } from '../stores/editorStore'
 import { useCallback, useRef, useEffect, useMemo, useState } from 'react'
@@ -116,7 +117,14 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
   const getActiveLineBackground = useThemeStore((s) => s.getActiveLineBackground)
   const getBorderColor = useThemeStore((s) => s.getBorderColor)
 
-  const langExt = useMemo(() => getLanguageExtension('file.md'), [])
+  const [langExt, setLangExt] = useState<Extension | null>(() => getLanguageExtension('file.md'))
+  useEffect(() => {
+    let cancelled = false
+    loadLanguageExtension('file.md').then((ext) => {
+      if (!cancelled && ext) setLangExt(ext)
+    })
+    return () => { cancelled = true }
+  }, [])
   const cmTheme = useMemo(
     () => buildCodeMirrorTheme({
       zedTheme,

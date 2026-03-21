@@ -17,24 +17,23 @@ export default defineConfig(async () => ({
   },
 
   build: {
+    target: 'esnext',
+    cssMinify: true,
     rollupOptions: {
       output: {
         manualChunks: {
           tldraw: ['tldraw'],
-          codemirror: [
+          'codemirror-core': [
             '@uiw/react-codemirror',
-            '@codemirror/lang-javascript',
-            '@codemirror/lang-rust',
-            '@codemirror/lang-python',
-            '@codemirror/lang-css',
-            '@codemirror/lang-html',
-            '@codemirror/lang-json',
-            '@codemirror/lang-markdown',
             '@codemirror/language',
             '@codemirror/state',
             '@codemirror/view',
+            '@codemirror/lint',
             '@lezer/highlight',
           ],
+          xterm: ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-webgl', '@xterm/addon-ligatures'],
+          markdown: ['react-markdown', 'remark-math', 'rehype-katex', 'rehype-highlight', 'rehype-sanitize'],
+          pdf: ['react-pdf'],
           icons: ['lucide-react'],
         },
       },

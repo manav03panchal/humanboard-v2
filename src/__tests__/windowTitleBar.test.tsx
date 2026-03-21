@@ -36,12 +36,11 @@ describe('WindowTitleBar', () => {
     expect(container.querySelectorAll('button')).toHaveLength(3)
   })
 
-  it('renders titlebar with buttons on Linux', async () => {
+  it('renders nothing on Linux (native decorations)', async () => {
     mockPlatform.mockReturnValue('linux' as any)
     const { WindowTitleBar } = await import('../components/WindowTitleBar')
     const { container } = render(<WindowTitleBar />)
-    expect(container.querySelector('[data-tauri-drag-region]')).toBeTruthy()
-    expect(container.querySelectorAll('button')).toHaveLength(3)
+    expect(container.innerHTML).toBe('')
   })
 
   it('has minimize, maximize, and close buttons with correct titles', async () => {

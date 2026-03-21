@@ -214,14 +214,24 @@ export function QuickOpen({ open, onClose }: { open: boolean; onClose: () => voi
                   }}
                 >
                   {query && indices.size > 0
-                    ? item.path.split('').map((ch, ci) => (
-                        <span
-                          key={ci}
-                          style={indices.has(ci) ? { color: 'var(--hb-fg)', fontWeight: 600 } : undefined}
-                        >
-                          {ch}
-                        </span>
-                      ))
+                    ? (() => {
+                        const parts: React.ReactNode[] = []
+                        let i = 0
+                        while (i < item.path.length) {
+                          if (indices.has(i)) {
+                            let end = i
+                            while (end < item.path.length && indices.has(end)) end++
+                            parts.push(<span key={i} style={{ color: 'var(--hb-fg)', fontWeight: 600 }}>{item.path.slice(i, end)}</span>)
+                            i = end
+                          } else {
+                            let end = i
+                            while (end < item.path.length && !indices.has(end)) end++
+                            parts.push(<span key={i}>{item.path.slice(i, end)}</span>)
+                            i = end
+                          }
+                        }
+                        return parts
+                      })()
                     : item.path}
                 </span>
               </div>

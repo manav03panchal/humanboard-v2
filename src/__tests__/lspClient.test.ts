@@ -190,9 +190,9 @@ describe('lspServerLanguage', () => {
     expect(lspServerLanguage('file.tsx')).toBe('typescript')
   })
 
-  it('maps js/jsx to javascript', () => {
-    expect(lspServerLanguage('file.js')).toBe('javascript')
-    expect(lspServerLanguage('file.jsx')).toBe('javascript')
+  it('maps js/jsx to typescript (uses typescript-language-server)', () => {
+    expect(lspServerLanguage('file.js')).toBe('typescript')
+    expect(lspServerLanguage('file.jsx')).toBe('typescript')
   })
 
   it('returns null for unsupported languages', () => {

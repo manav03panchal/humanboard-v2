@@ -9,7 +9,7 @@ import {
 } from 'tldraw'
 import CodeMirror from '@uiw/react-codemirror'
 import { useFileStore } from '../stores/fileStore'
-import { getLanguageExtension } from '../lib/language'
+import { getLanguageExtension, loadLanguageExtension } from '../lib/language'
 import { buildCodeMirrorTheme, useThemeStore } from '../lib/theme'
 import { useVaultStore } from '../stores/vaultStore'
 import { getLspClient, getServerLanguage, getLanguageId } from '../lib/lspManager'
@@ -125,10 +125,15 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vaultPath, filePath])
 
-  const langExt = useMemo(
-    () => getLanguageExtension(filePath),
-    [filePath]
-  )
+  const [langExt, setLangExt] = useState<Extension | null>(() => getLanguageExtension(filePath))
+  useEffect(() => {
+    let cancelled = false
+    loadLanguageExtension(filePath).then((ext) => {
+      if (!cancelled && ext) setLangExt(ext)
+    })
+    return () => { cancelled = true }
+  }, [filePath])
+
   const cmTheme = useMemo(
     () => buildCodeMirrorTheme({
       zedTheme,

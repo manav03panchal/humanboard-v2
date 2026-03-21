@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getLanguageName, getLanguageExtension } from '../lib/language'
+import { getLanguageName, getLanguageExtension, loadLanguageExtension } from '../lib/language'
 
 describe('getLanguageName', () => {
   it('returns typescript for .ts files', () => {
@@ -60,22 +60,26 @@ describe('getLanguageName', () => {
   })
 })
 
-describe('getLanguageExtension', () => {
-  it('returns a non-null extension for known languages', () => {
-    expect(getLanguageExtension('file.ts')).not.toBeNull()
-    expect(getLanguageExtension('file.tsx')).not.toBeNull()
-    expect(getLanguageExtension('file.js')).not.toBeNull()
-    expect(getLanguageExtension('file.rs')).not.toBeNull()
-    expect(getLanguageExtension('file.py')).not.toBeNull()
-    expect(getLanguageExtension('file.css')).not.toBeNull()
-    expect(getLanguageExtension('file.html')).not.toBeNull()
-    expect(getLanguageExtension('file.json')).not.toBeNull()
-    expect(getLanguageExtension('file.md')).not.toBeNull()
+describe('loadLanguageExtension', () => {
+  it('loads extensions for known languages', async () => {
+    expect(await loadLanguageExtension('file.ts')).not.toBeNull()
+    expect(await loadLanguageExtension('file.tsx')).not.toBeNull()
+    expect(await loadLanguageExtension('file.js')).not.toBeNull()
+    expect(await loadLanguageExtension('file.rs')).not.toBeNull()
+    expect(await loadLanguageExtension('file.py')).not.toBeNull()
+    expect(await loadLanguageExtension('file.css')).not.toBeNull()
+    expect(await loadLanguageExtension('file.html')).not.toBeNull()
+    expect(await loadLanguageExtension('file.json')).not.toBeNull()
+    expect(await loadLanguageExtension('file.md')).not.toBeNull()
   })
 
-  it('returns null for unknown extensions', () => {
-    expect(getLanguageExtension('file.xyz')).toBeNull()
-    expect(getLanguageExtension('file.toml')).toBeNull()
+  it('returns from sync cache after loading', async () => {
+    await loadLanguageExtension('file.ts')
+    expect(getLanguageExtension('file.ts')).not.toBeNull()
+  })
+
+  it('returns null for unknown extensions', async () => {
+    expect(await loadLanguageExtension('file.xyz')).toBeNull()
   })
 
   it('returns null for files with no extension', () => {

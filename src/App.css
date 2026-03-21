@@ -24,6 +24,18 @@ body::-webkit-scrollbar {
   -webkit-text-size-adjust: 100%;
 }
 
+/* CodeMirror fold gutter — center arrows with line text */
+.cm-foldGutter .cm-gutterElement span {
+  vertical-align: middle;
+  line-height: inherit;
+}
+.cm-foldGutter .cm-gutterElement {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
 /* tldraw overrides — kill ALL blue, OLED black */
 .tl-theme__dark {
   --color-background: var(--hb-bg) !important;
