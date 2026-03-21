@@ -59,7 +59,7 @@ export function LandingScreen() {
           zIndex: 9999,
         }}
       />
-      <h1 style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em' }}>
+      <h1 style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em', marginTop: -48 }}>
         Humanboard
       </h1>
 

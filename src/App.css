@@ -11,7 +11,7 @@ body::-webkit-scrollbar {
 }
 
 :root {
-  font-family: "Iosevka Nerd Font Mono", "Iosevka", Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "JetBrains Mono", Menlo, Monaco, "Courier New", monospace;
   font-size: 14px;
   line-height: 1.5;
   font-weight: 400;
@@ -192,6 +192,13 @@ body::-webkit-scrollbar {
   color: #fff !important;
 }
 
+/* GPU compositing for shape containers — no contain:paint (clips CM tooltips) */
+.tl-html-container {
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-transform-style: preserve-3d;
+}
+
 /* CodeMirror must scroll within its container */
 .cm-editor {
   height: 100% !important;
@@ -243,7 +250,7 @@ body::-webkit-scrollbar {
   background: rgba(255,255,255,0.1);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: 'Iosevka Nerd Font Mono', 'Iosevka', monospace;
+  font-family: 'JetBrains Mono', Menlo, Monaco, monospace;
   font-size: 0.9em;
 }
 .markdown-body pre {

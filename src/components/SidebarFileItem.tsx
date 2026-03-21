@@ -14,13 +14,7 @@ interface SidebarFileItemProps {
 }
 
 export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir, modifiedAt, onClick, onContextMenu }: SidebarFileItemProps) {
-  // Subscribe to the full files map and find our file's diagnostics
-  const diag = useDiagnosticStore((s) => {
-    for (const [uri, d] of s.files) {
-      if (uri.endsWith('/' + path) || uri.endsWith(path)) return d
-    }
-    return undefined
-  })
+  const diag = useDiagnosticStore((s) => s.files.get(path))
   const Icon = getFileIcon(path, isDir)
   const dateStr = formatDate(modifiedAt)
 

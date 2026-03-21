@@ -8,6 +8,42 @@
 
   <body>
     <div id="root"></div>
+    <script>
+      // Dev-only: stub Tauri IPC when running in a plain browser (e.g. agent-browser)
+      if (!window.__TAURI_INTERNALS__) {
+        var cbs = new Map();
+        window.__TAURI_INTERNALS__ = {
+          invoke: function(cmd, args) {
+            console.warn('[TAURI MOCK] invoke:', cmd);
+            if (cmd === 'read_dir') return Promise.resolve([]);
+            if (cmd === 'load_canvas') return Promise.resolve(null);
+            if (cmd === 'read_file') return Promise.resolve('');
+            if (cmd === 'lsp_start') return Promise.reject('no LSP in browser');
+            if (cmd.startsWith('plugin:event|listen')) return Promise.resolve(cbs.size);
+            if (cmd.startsWith('plugin:')) return Promise.resolve(null);
+            return Promise.resolve(null);
+          },
+          transformCallback: function(cb, once) {
+            var id = crypto.getRandomValues(new Uint32Array(1))[0];
+            cbs.set(id, { cb: cb, once: once });
+            return id;
+          },
+          unregisterCallback: function(id) { cbs.delete(id); },
+          runCallback: function(id, data) {
+            var e = cbs.get(id);
+            if (e) { if (e.once) cbs.delete(id); e.cb(data); }
+          },
+          convertFileSrc: function(path, proto) {
+            return (proto || 'asset') + '://localhost/' + encodeURIComponent(path);
+          },
+          metadata: {
+            currentWindow: { label: 'main' },
+            currentWebview: { windowLabel: 'main', label: 'main' }
+          }
+        };
+        window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: function() {} };
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -176,12 +176,7 @@ function TreeFileItem({
   onContextMenu?: (state: ContextMenuState) => void
 }) {
   const Icon = getFileIcon(path, false)
-  const diag = useDiagnosticStore((s) => {
-    for (const [uri, d] of s.files) {
-      if (uri.endsWith('/' + path) || uri.endsWith(path)) return d
-    }
-    return undefined
-  })
+  const diag = useDiagnosticStore((s) => s.files.get(path))
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return

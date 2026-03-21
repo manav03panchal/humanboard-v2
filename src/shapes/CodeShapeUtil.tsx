@@ -69,6 +69,14 @@ export class CodeShapeUtil extends BaseBoxShapeUtil<CodeShape> {
   }
 }
 
+const BASIC_SETUP = {
+  lineNumbers: true,
+  foldGutter: true,
+  highlightActiveLine: true,
+  bracketMatching: true,
+  autocompletion: false,
+} as const
+
 const stopEvent = (e: React.SyntheticEvent) => e.stopPropagation()
 
 function CodeShapeComponent({ shape }: { shape: CodeShape }) {
@@ -230,13 +238,7 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
           theme="none"
           editable={isEditing}
           height="100%"
-          basicSetup={{
-            lineNumbers: true,
-            foldGutter: true,
-            highlightActiveLine: true,
-            bracketMatching: true,
-            autocompletion: false, // LSP handles this
-          }}
+          basicSetup={BASIC_SETUP}
           style={{ height: '100%', cursor: isEditing ? 'text' : 'default' }}
         />
       </div>

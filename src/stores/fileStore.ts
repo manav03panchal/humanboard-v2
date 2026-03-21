@@ -28,21 +28,29 @@ interface FileStore {
   reloadFile: (vaultRoot: string, filePath: string) => Promise<void>
 }
 
+const opening = new Set<string>()
+
 export const useFileStore = create<FileStore>((set, get) => ({
   files: new Map(),
 
   openFile: async (vaultRoot, filePath) => {
     if (get().files.has(filePath)) return
-    const content = await invoke<string>('read_file', {
-      vaultRoot,
-      filePath,
-    })
-    set((state) => {
-      const files = new Map(state.files)
-      files.set(filePath, { content, diskContent: content, isDirty: false })
-      return { files }
-    })
-    triggerLinkScan(filePath, content)
+    if (opening.has(filePath)) return
+    opening.add(filePath)
+    try {
+      const content = await invoke<string>('read_file', {
+        vaultRoot,
+        filePath,
+      })
+      set((state) => {
+        const files = new Map(state.files)
+        files.set(filePath, { content, diskContent: content, isDirty: false })
+        return { files }
+      })
+      triggerLinkScan(filePath, content)
+    } finally {
+      opening.delete(filePath)
+    }
   },
 
   updateContent: (filePath, content) => {
@@ -69,10 +77,12 @@ export const useFileStore = create<FileStore>((set, get) => ({
     })
     set((state) => {
       const files = new Map(state.files)
+      const current = files.get(filePath)
+      if (!current) return state
       files.set(filePath, {
-        content: file.content,
+        content: current.content,
         diskContent: file.content,
-        isDirty: false,
+        isDirty: current.content !== file.content,
       })
       return { files }
     })

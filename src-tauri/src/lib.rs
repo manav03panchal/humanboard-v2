@@ -1,5 +1,8 @@
 mod commands;
 
+use std::sync::Mutex;
+pub struct VaultRoot(pub Mutex<Option<String>>);
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -8,9 +11,9 @@ pub fn run() {
         .plugin(tauri_plugin_pty::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
+        .manage(VaultRoot(Mutex::new(None)))
         .manage(commands::watcher::init_watcher_state())
         .manage(commands::lsp::init_lsp_state())
-        .manage(commands::agent::init_agent_state())
         .invoke_handler(tauri::generate_handler![
             commands::files::read_file,
             commands::files::write_file,
@@ -28,16 +31,6 @@ pub fn run() {
             commands::lsp::lsp_start,
             commands::lsp::lsp_send,
             commands::lsp::lsp_stop,
-            commands::webview::create_webview,
-            commands::webview::move_webview,
-            commands::webview::close_webview,
-            commands::webview::navigate_webview,
-            commands::webview::webview_go_back,
-            commands::webview::webview_go_forward,
-            commands::webview::webview_reload,
-            commands::agent::start_agent,
-            commands::agent::run_agent_task,
-            commands::agent::stop_agent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

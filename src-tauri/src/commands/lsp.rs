@@ -33,6 +33,7 @@ fn get_lsp_binary(language: &str) -> Result<(String, Vec<String>), String> {
             vec!["--stdio".into()],
         )),
         "rust" => Ok(("rust-analyzer".into(), vec![])),
+        "go" => Ok(("gopls".into(), vec![])),
         "python" => {
             // Try pyright-langserver first, fall back to pylsp
             if which_exists("pyright-langserver") {
@@ -62,8 +63,8 @@ fn get_lsp_binary(language: &str) -> Result<(String, Vec<String>), String> {
 /// Check if a binary exists on PATH (including homebrew and cargo paths).
 fn which_exists(binary: &str) -> bool {
     let path_env = std::env::var("PATH").unwrap_or_default();
-    let extended_path = format!("/opt/homebrew/bin:/usr/local/bin:{}/.cargo/bin:{}",
-        std::env::var("HOME").unwrap_or_default(), path_env);
+    let home = std::env::var("HOME").unwrap_or_default();
+    let extended_path = format!("/opt/homebrew/bin:/usr/local/bin:{home}/.cargo/bin:{home}/go/bin:{path_env}");
     Command::new("which")
         .arg(binary)
         .env("PATH", &extended_path)
@@ -96,8 +97,8 @@ pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result
     let (binary, args) = get_lsp_binary(&language)?;
     // Ensure /opt/homebrew/bin and common paths are in PATH for finding language servers
     let path_env = std::env::var("PATH").unwrap_or_default();
-    let extended_path = format!("/opt/homebrew/bin:/usr/local/bin:{}/.cargo/bin:{}",
-        std::env::var("HOME").unwrap_or_default(), path_env);
+    let home = std::env::var("HOME").unwrap_or_default();
+    let extended_path = format!("/opt/homebrew/bin:/usr/local/bin:{home}/.cargo/bin:{home}/go/bin:{path_env}");
 
     let mut child = Command::new(&binary)
         .args(&args)
@@ -114,15 +115,12 @@ pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result
     let stderr = child.stderr.take();
     let stdin = child.stdin.take().ok_or("Failed to capture stdin")?;
 
-    // Log stderr from language server
+    // Drain stderr to prevent pipe buffer from blocking the server
     if let Some(stderr) = stderr {
-        let lang = language.clone();
         thread::spawn(move || {
             let reader = BufReader::new(stderr);
             for line in reader.lines() {
-                if let Ok(line) = line {
-                    eprintln!("[LSP {lang}] {line}");
-                }
+                if line.is_err() { break; }
             }
         });
     }
@@ -156,6 +154,22 @@ pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result
                 _ => continue,
             };
 
+            // Cap message size to prevent OOM
+            const MAX_LSP_MSG: usize = 64 * 1024 * 1024;
+            if len > MAX_LSP_MSG {
+                #[cfg(debug_assertions)]
+                eprintln!("[LSP] Message too large: {len} bytes, skipping");
+                // Skip the body
+                let mut discard = vec![0u8; 4096];
+                let mut remaining = len;
+                while remaining > 0 {
+                    let to_read = remaining.min(4096);
+                    if std::io::Read::read_exact(&mut reader, &mut discard[..to_read]).is_err() { break; }
+                    remaining -= to_read;
+                }
+                continue;
+            }
+
             // Read JSON body
             let mut body = vec![0u8; len];
             if std::io::Read::read_exact(&mut reader, &mut body).is_err() {
@@ -163,9 +177,6 @@ pub fn lsp_start(app: AppHandle, language: String, vault_path: String) -> Result
             }
 
             if let Ok(msg) = String::from_utf8(body) {
-                if msg.contains("publishDiagnostics") {
-                    eprintln!("[LSP RUST] Got publishDiagnostics! len={}", msg.len());
-                }
                 let _ = app_handle.emit(&event_name, msg);
             }
         }
@@ -216,6 +227,7 @@ pub fn lsp_stop(app: AppHandle, server_id: u32) -> Result<(), String> {
     let mut state = state.lock().map_err(|e| format!("Lock error: {e}"))?;
     if let Some(mut server) = state.servers.remove(&server_id) {
         let _ = server.child.kill();
+        let _ = server.child.wait();
     }
     Ok(())
 }

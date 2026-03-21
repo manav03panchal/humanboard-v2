@@ -249,7 +249,7 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
               height: '100%',
               color: textMuted,
               fontSize: 13,
-              fontFamily: '"Iosevka Nerd Font Mono", "Iosevka", Menlo, Monaco, monospace',
+              fontFamily: '"JetBrains Mono", Menlo, Monaco, monospace',
               flexDirection: 'column',
               gap: 8,
             }}
@@ -308,7 +308,7 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
                     y={pos.y + 4}
                     fill={fg}
                     fontSize={11}
-                    fontFamily='"Iosevka Nerd Font Mono", "Iosevka", Menlo, Monaco, monospace'
+                    fontFamily='"JetBrains Mono", Menlo, Monaco, monospace'
                     fillOpacity={0.8}
                   >
                     {label}

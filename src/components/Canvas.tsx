@@ -1,4 +1,5 @@
 import { useCallback, useRef, useEffect, useState } from 'react'
+import { Columns2, LayoutGrid, PanelLeft } from 'lucide-react'
 import { Tldraw, type Editor } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { customShapeUtils } from '../shapes'
@@ -10,6 +11,8 @@ import { getLanguageName } from '../lib/language'
 import { useToastStore } from './Toast'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
+
+const TLDRAW_OPTIONS = { maxPages: 1, debouncedZoom: false } as const
 
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
 const PDF_EXTENSIONS = ['pdf']
@@ -53,9 +56,11 @@ function findNonOverlappingPosition(editor: Editor, baseX: number, baseY: number
   return { x, y }
 }
 
-function StatusBar() {
+export function StatusBar({ ideMode }: { ideMode?: boolean }) {
   const [zoom, setZoom] = useState(100)
   const [lspStatuses, setLspStatuses] = useState<Map<string, string>>(new Map())
+  const sidebarOpen = useVaultStore((s) => s.sidebarOpen)
+  const toggleSidebar = useVaultStore((s) => s.toggleSidebar)
 
   useEffect(() => {
     const zoomHandler = (e: Event) => {
@@ -94,11 +99,47 @@ function StatusBar() {
         backgroundColor: '#0a0a0a',
         borderTop: '1px solid #1a1a1a',
         fontSize: 11,
-        fontFamily: '"Iosevka Nerd Font Mono", "Iosevka", monospace',
+        fontFamily: '"JetBrains Mono", monospace',
         color: '#555',
         userSelect: 'none',
       }}
     >
+      <button
+        onClick={toggleSidebar}
+        title={sidebarOpen ? 'Hide sidebar (Ctrl+B)' : 'Show sidebar (Ctrl+B)'}
+        style={{
+          display: 'flex', alignItems: 'center',
+          background: 'none', border: 'none',
+          color: sidebarOpen ? '#555' : '#888',
+          cursor: 'pointer', padding: '0 4px', fontSize: 11, fontFamily: 'inherit',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = '#888' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = sidebarOpen ? '#555' : '#888' }}
+      >
+        <PanelLeft size={13} />
+      </button>
+      <button
+        onClick={() => window.dispatchEvent(new CustomEvent('humanboard:toggle-ide-mode'))}
+        title={ideMode ? 'Canvas mode (Ctrl+I)' : 'IDE mode (Ctrl+I)'}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          background: 'none',
+          border: 'none',
+          color: ideMode ? '#528bff' : '#555',
+          cursor: 'pointer',
+          padding: '0 4px',
+          fontSize: 11,
+          fontFamily: 'inherit',
+          marginRight: 'auto',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = '#888' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = ideMode ? '#528bff' : '#555' }}
+      >
+        {ideMode ? <LayoutGrid size={12} /> : <Columns2 size={12} />}
+        <span>{ideMode ? 'Canvas' : 'IDE'}</span>
+      </button>
       {Array.from(lspStatuses.entries()).map(([lang, status]) => (
         <span key={lang} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span
@@ -268,25 +309,7 @@ export function Canvas() {
     return () => window.removeEventListener('keydown', handleGraphKeyDown)
   }, [])
 
-  // Cmd+Shift+B shortcut to create browser view
-  useEffect(() => {
-    const handleBrowserKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'U' || e.key === 'u')) {
-        e.preventDefault()
-        const editor = editorRef.current
-        if (!editor) return
-        const { x, y } = editor.getViewportPageBounds().center
-        editor.createShape({
-          type: 'browser-shape',
-          x: x - 400,
-          y: y - 300,
-          props: { w: 800, h: 600, url: 'https://google.com' },
-        })
-      }
-    }
-    window.addEventListener('keydown', handleBrowserKeyDown)
-    return () => window.removeEventListener('keydown', handleBrowserKeyDown)
-  }, [])
+
 
   // Expose editor ref for sidebar drag-drop
   useEffect(() => {
@@ -551,10 +574,10 @@ export function Canvas() {
         shapeUtils={customShapeUtils}
         hideUi
         onMount={handleMount}
-        options={{ maxPages: 1 }}
+        options={TLDRAW_OPTIONS}
         inferDarkMode
       />
-      <StatusBar />
+      {/* StatusBar moved to Workspace for visibility in IDE mode */}
     </div>
   )
 }

@@ -28,6 +28,7 @@ tauri-plugin-pty = "0.1"
 tauri-plugin-os = "2"
 tauri-plugin-shell = "2"
 uuid = { version = "1", features = ["v4"] }
+tokio = { version = "1", features = ["rt"] }
 
 [dev-dependencies]
 tempfile = "3"

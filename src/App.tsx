@@ -12,6 +12,15 @@ function App() {
 
   useEffect(() => {
     loadRecentVaults()
+
+    // Dev-only: bypass welcome screen via ?vault=/path for browser testing
+    if (import.meta.env.DEV) {
+      const params = new URLSearchParams(window.location.search)
+      const devVault = params.get('vault')
+      if (devVault && !useVaultStore.getState().vaultPath) {
+        useVaultStore.setState({ vaultPath: devVault })
+      }
+    }
   }, [loadRecentVaults])
 
   useKeyboardShortcuts()

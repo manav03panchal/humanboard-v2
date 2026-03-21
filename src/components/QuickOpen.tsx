@@ -172,7 +172,7 @@ export function QuickOpen({ open, onClose }: { open: boolean; onClose: () => voi
               outline: 'none',
               color: '#e0e0e0',
               fontSize: 14,
-              fontFamily: '"Iosevka Nerd Font Mono", "Iosevka", monospace',
+              fontFamily: '"JetBrains Mono", monospace',
             }}
           />
         </div>
@@ -206,7 +206,7 @@ export function QuickOpen({ open, onClose }: { open: boolean; onClose: () => voi
                 <span
                   style={{
                     fontSize: 13,
-                    fontFamily: '"Iosevka Nerd Font Mono", "Iosevka", monospace',
+                    fontFamily: '"JetBrains Mono", monospace',
                     color: '#ccc',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',

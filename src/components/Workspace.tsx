@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { PanelLeft } from 'lucide-react'
+import { useStoreWithEqualityFn } from 'zustand/traditional'
 import { Sidebar } from './Sidebar'
-import { Canvas } from './Canvas'
+import { Canvas, StatusBar } from './Canvas'
+import { IdeLayout } from './IdeLayout'
 import { WindowTitleBar } from './WindowTitleBar'
 import { useFileStore } from '../stores/fileStore'
 import { useVaultStore } from '../stores/vaultStore'
@@ -23,6 +24,12 @@ export function Workspace() {
   const os = usePlatform()
   const isMac = os === 'macos'
   const [quickOpenOpen, setQuickOpenOpen] = useState(false)
+  const [ideMode, setIdeMode] = useState(false)
+  const openFiles = useStoreWithEqualityFn(
+    useFileStore,
+    useCallback((s) => Array.from(s.files.keys()), []),
+    (a, b) => a.length === b.length && a.every((v, i) => v === b[i])
+  )
 
   useEffect(() => {
     const handler = () => setQuickOpenOpen((o) => !o)
@@ -30,8 +37,29 @@ export function Workspace() {
     return () => window.removeEventListener('humanboard:toggle-quick-open', handler)
   }, [])
 
-  // On vault change: load theme, clear file store and link store
+  // Expose IDE mode toggle for StatusBar
   useEffect(() => {
+    const handler = () => setIdeMode((v) => !v)
+    window.addEventListener('humanboard:toggle-ide-mode', handler)
+    return () => window.removeEventListener('humanboard:toggle-ide-mode', handler)
+  }, [])
+
+  // Ctrl+I / Cmd+I to toggle IDE mode
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+        e.preventDefault()
+        setIdeMode((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  // On vault change: load theme, clear all state, reset to canvas
+  useEffect(() => {
+    (globalThis as any).__humanboard_vault_path = vaultPath
+    setIdeMode(false)
     loadTheme(vaultPath)
     const { files, closeFile } = useFileStore.getState()
     for (const filePath of files.keys()) {
@@ -69,8 +97,8 @@ export function Workspace() {
   }
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100vh' }}>
-      {isMac ? (
+    <div style={{ display: 'flex', width: '100%', height: 'calc(100vh - 24px)' }}>
+      {isMac && (
         <div
           onMouseDown={handleDrag}
           style={{
@@ -82,46 +110,45 @@ export function Workspace() {
             zIndex: 9999,
           }}
         />
-      ) : (
-        <WindowTitleBar />
       )}
+      <WindowTitleBar />
       <Sidebar onFileClick={handleFileClick} />
-      <SidebarOpenTab />
-      <div style={{ flex: 1, height: '100%' }}>
-        <Canvas key={vaultPath} />
+      <div style={{ flex: 1, height: '100%', position: 'relative', overflow: 'hidden' }}>
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            position: 'absolute',
+            inset: 0,
+            opacity: ideMode ? 0 : 1,
+            transform: ideMode ? 'scale(1.02)' : 'scale(1)',
+            transition: 'opacity 200ms ease, transform 200ms ease',
+            pointerEvents: ideMode ? 'none' : 'auto',
+          }}
+        >
+          <Canvas key={vaultPath} />
+        </div>
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            position: 'absolute',
+            inset: 0,
+            opacity: ideMode ? 1 : 0,
+            transform: ideMode ? 'translateY(0)' : 'translateY(12px)',
+            transition: 'opacity 200ms ease, transform 200ms ease',
+            pointerEvents: ideMode ? 'auto' : 'none',
+          }}
+        >
+          <IdeLayout
+            key={vaultPath}
+            openFiles={openFiles}
+            onClose={() => setIdeMode(false)}
+          />
+        </div>
       </div>
       <QuickOpen open={quickOpenOpen} onClose={() => setQuickOpenOpen(false)} />
+      <StatusBar ideMode={ideMode} />
     </div>
-  )
-}
-
-function SidebarOpenTab() {
-  const sidebarOpen = useVaultStore((s) => s.sidebarOpen)
-  const toggleSidebar = useVaultStore((s) => s.toggleSidebar)
-
-  if (sidebarOpen) return null
-
-  return (
-    <button
-      onClick={toggleSidebar}
-      style={{
-        position: 'fixed',
-        left: 0,
-        top: 40,
-        zIndex: 100,
-        background: '#0a0a0a',
-        border: '1px solid #1a1a1a',
-        borderLeft: 'none',
-        borderRadius: '0 6px 6px 0',
-        color: '#666',
-        cursor: 'pointer',
-        padding: '8px 6px',
-        display: 'flex',
-        alignItems: 'center',
-      }}
-      title="Open sidebar (Cmd+B)"
-    >
-      <PanelLeft size={14} strokeWidth={1.5} />
-    </button>
   )
 }

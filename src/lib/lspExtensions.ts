@@ -218,7 +218,7 @@ export function lspHoverExtension(vaultPath: string, filePath: string): Extensio
             max-height: 300px;
             overflow: auto;
             padding: 8px 12px;
-            font-family: "Iosevka Nerd Font Mono", "Iosevka", Menlo, Monaco, monospace;
+            font-family: "JetBrains Mono", Menlo, Monaco, monospace;
             font-size: 13px;
             white-space: pre-wrap;
             line-height: 1.5;

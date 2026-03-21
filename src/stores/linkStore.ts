@@ -79,8 +79,10 @@ export const useLinkStore = create<LinkStore>((set, get) => ({
         for (const target of oldTargets) {
           const bl = backlinks.get(target)
           if (bl) {
-            bl.delete(filePath)
-            if (bl.size === 0) backlinks.delete(target)
+            const newBl = new Set(bl)
+            newBl.delete(filePath)
+            if (newBl.size === 0) backlinks.delete(target)
+            else backlinks.set(target, newBl)
           }
         }
       }
@@ -93,8 +95,10 @@ export const useLinkStore = create<LinkStore>((set, get) => ({
         const resolved = resolveWikilink(name, allMdFiles)
         if (resolved && resolved !== filePath) {
           newTargets.add(resolved)
-          if (!backlinks.has(resolved)) backlinks.set(resolved, new Set())
-          backlinks.get(resolved)!.add(filePath)
+          const existing = backlinks.get(resolved)
+          const newBl = existing ? new Set(existing) : new Set<string>()
+          newBl.add(filePath)
+          backlinks.set(resolved, newBl)
         }
       }
 
@@ -114,8 +118,10 @@ export const useLinkStore = create<LinkStore>((set, get) => ({
         for (const target of targets) {
           const bl = backlinks.get(target)
           if (bl) {
-            bl.delete(filePath)
-            if (bl.size === 0) backlinks.delete(target)
+            const newBl = new Set(bl)
+            newBl.delete(filePath)
+            if (newBl.size === 0) backlinks.delete(target)
+            else backlinks.set(target, newBl)
           }
         }
       }
@@ -127,7 +133,9 @@ export const useLinkStore = create<LinkStore>((set, get) => ({
         for (const source of sources) {
           const sl = links.get(source)
           if (sl) {
-            sl.delete(filePath)
+            const newSl = new Set(sl)
+            newSl.delete(filePath)
+            links.set(source, newSl)
           }
         }
       }

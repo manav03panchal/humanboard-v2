@@ -5,7 +5,7 @@ import { usePlatform } from '../hooks/usePlatform'
 export function WindowTitleBar() {
   const os = usePlatform()
 
-  if (os === 'macos') return null
+  if (os === 'macos' || os === 'linux') return null
 
   const appWindow = getCurrentWindow()
 

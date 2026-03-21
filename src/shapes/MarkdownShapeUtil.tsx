@@ -9,15 +9,36 @@ import {
 } from 'tldraw'
 import CodeMirror from '@uiw/react-codemirror'
 import ReactMarkdown from 'react-markdown'
-import rehypeRaw from 'rehype-raw'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import rehypeHighlight from 'rehype-highlight'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import 'katex/dist/katex.min.css'
 import 'highlight.js/styles/github-dark.min.css'
 
+// Allow KaTeX and highlight.js class names through sanitization
+const sanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    '*': [...(defaultSchema.attributes?.['*'] ?? []), 'className', 'style'],
+    code: [...(defaultSchema.attributes?.code ?? []), 'className'],
+    span: [...(defaultSchema.attributes?.span ?? []), 'className', 'style'],
+    div: [...(defaultSchema.attributes?.div ?? []), 'className', 'style'],
+  },
+  tagNames: [...(defaultSchema.tagNames ?? []), 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon'],
+}
+
 const remarkPlugins = [remarkMath]
-const rehypePlugins = [rehypeRaw, rehypeKatex, rehypeHighlight]
+const rehypePlugins: any[] = [[rehypeSanitize, sanitizeSchema], rehypeKatex, rehypeHighlight]
+
+const BASIC_SETUP = {
+  lineNumbers: true,
+  foldGutter: true,
+  highlightActiveLine: true,
+  bracketMatching: true,
+  autocompletion: false,
+} as const
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { useVaultStore } from '../stores/vaultStore'
 import { useFileStore } from '../stores/fileStore'
@@ -327,13 +348,7 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
             extensions={extensions}
             theme="none"
             editable={isEditing}
-            basicSetup={{
-              lineNumbers: true,
-              foldGutter: true,
-              highlightActiveLine: true,
-              bracketMatching: true,
-              autocompletion: false,
-            }}
+            basicSetup={BASIC_SETUP}
             style={{ height: '100%', cursor: 'text' }}
           />
         )}

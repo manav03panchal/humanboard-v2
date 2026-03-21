@@ -234,7 +234,7 @@ export function buildCodeMirrorTheme(theme: CodeMirrorThemeInput): Extension[] {
   const editorTheme = EditorView.theme(
     {
       '&': {
-        fontFamily: '"Iosevka Nerd Font Mono", "Iosevka", Menlo, Monaco, monospace',
+        fontFamily: '"JetBrains Mono", Menlo, Monaco, monospace',
         fontSize: '14px',
         backgroundColor: bg,
         color: fg,

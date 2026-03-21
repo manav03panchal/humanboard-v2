@@ -90,7 +90,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
 
     const term = new Terminal({
       cursorBlink: true,
-      fontFamily: '"Iosevka Nerd Font Mono", "Iosevka", Menlo, Monaco, monospace',
+      fontFamily: '"JetBrains Mono", Menlo, Monaco, monospace',
       fontSize: 14,
       scrollback: 1000,
       drawBoldTextInBrightColors: false,

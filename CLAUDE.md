@@ -5,7 +5,7 @@
 - Bun as package manager
 - Zustand for state management
 - lucide-react for icons
-- Iosevka Nerd Font Mono as the global font
+- JetBrains Mono (bundled woff2) as the global font
 
 ## Commands
 - `bun run dev` — start Vite dev server

@@ -162,7 +162,7 @@ function NoteShapeComponent({ shape }: { shape: NoteShape }) {
           flex: 1,
           padding: 12,
           color: fg,
-          fontFamily: '"Iosevka Nerd Font Mono", "Iosevka", Menlo, Monaco, monospace',
+          fontFamily: '"JetBrains Mono", Menlo, Monaco, monospace',
           fontSize: 14,
           lineHeight: 1.5,
           overflowY: 'auto',

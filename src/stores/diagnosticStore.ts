@@ -18,8 +18,13 @@ export const useDiagnosticStore = create<DiagnosticStore>((set, get) => ({
   setDiagnostics: (uri, errors, warnings) => {
     set((state) => {
       const files = new Map(state.files)
-      // Convert URI to relative path (strip file:///vault/path/)
-      const path = uri.replace(/^file:\/\//, '')
+      // Normalize to relative path for O(1) sidebar lookups
+      let path = uri.replace(/^file:\/\//, '')
+      // Strip vault root prefix if present
+      const vaultPath = (globalThis as any).__humanboard_vault_path
+      if (vaultPath && path.startsWith(vaultPath + '/')) {
+        path = path.slice(vaultPath.length + 1)
+      }
       if (errors === 0 && warnings === 0) {
         files.delete(path)
       } else {
@@ -30,13 +35,7 @@ export const useDiagnosticStore = create<DiagnosticStore>((set, get) => ({
   },
 
   getForFile: (filePath) => {
-    // Try matching by the end of the path since URIs are absolute
-    for (const [uri, diag] of get().files) {
-      if (uri.endsWith('/' + filePath) || uri.endsWith(filePath)) {
-        return diag
-      }
-    }
-    return undefined
+    return get().files.get(filePath)
   },
 
   clear: () => set({ files: new Map() }),

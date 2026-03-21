@@ -26,7 +26,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
   const [width, setWidth] = useState(260)
   const isResizing = useRef(false)
   const os = usePlatform()
-  const titlebarSpacerHeight = os === 'macos' ? 38 : 32
+  const titlebarSpacerHeight = os === 'macos' ? 38 : os === 'linux' ? 0 : 32
 
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault()

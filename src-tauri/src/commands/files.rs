@@ -18,7 +18,7 @@ pub struct FileEntry {
 fn validate_path(vault_root: &str, requested: &str) -> Result<PathBuf, String> {
     let root = fs::canonicalize(vault_root).map_err(|e| format!("Invalid vault root: {e}"))?;
     let full = root.join(requested);
-    let resolved = fs::canonicalize(&full).unwrap_or(full.clone());
+    let resolved = fs::canonicalize(&full).unwrap_or_else(|_| normalize_path(&full));
     if !resolved.starts_with(&root) {
         return Err("Path traversal denied".into());
     }
@@ -26,23 +26,27 @@ fn validate_path(vault_root: &str, requested: &str) -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-pub fn read_file(vault_root: String, file_path: String) -> Result<String, String> {
-    let path = validate_path(&vault_root, &file_path)?;
-    let metadata = fs::metadata(&path).map_err(|e| format!("Cannot read {file_path}: {e}"))?;
-    if metadata.len() > MAX_FILE_SIZE {
-        return Err("File too large to open as editor (max 5MB)".into());
-    }
-    let content = fs::read(&path).map_err(|e| format!("Cannot read {file_path}: {e}"))?;
-    if content.contains(&0u8) {
-        return Err("Binary files are not supported".into());
-    }
-    String::from_utf8(content).map_err(|_| "File is not valid UTF-8".into())
+pub async fn read_file(vault_root: String, file_path: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let path = validate_path(&vault_root, &file_path)?;
+        let metadata = fs::metadata(&path).map_err(|e| format!("Cannot read {file_path}: {e}"))?;
+        if metadata.len() > MAX_FILE_SIZE {
+            return Err("File too large to open as editor (max 5MB)".into());
+        }
+        let content = fs::read(&path).map_err(|e| format!("Cannot read {file_path}: {e}"))?;
+        if content.contains(&0u8) {
+            return Err("Binary files are not supported".into());
+        }
+        String::from_utf8(content).map_err(|_| "File is not valid UTF-8".into())
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn write_file(vault_root: String, file_path: String, content: String) -> Result<(), String> {
-    let path = validate_path(&vault_root, &file_path)?;
-    fs::write(&path, content).map_err(|e| format!("Cannot save {file_path}: {e}"))
+pub async fn write_file(vault_root: String, file_path: String, content: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let path = validate_path(&vault_root, &file_path)?;
+        fs::write(&path, content).map_err(|e| format!("Cannot save {file_path}: {e}"))
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -56,7 +60,7 @@ pub fn copy_file_into_vault(
         return Err(format!("Source file not found: {source_path}"));
     }
     let root = fs::canonicalize(&vault_root).map_err(|e| format!("Invalid vault root: {e}"))?;
-    let dest = root.join(&dest_relative);
+    let dest = normalize_path(&root.join(&dest_relative));
     // Ensure dest is within vault
     if !dest.starts_with(&root) {
         return Err("Destination path traversal denied".into());
@@ -97,14 +101,16 @@ pub fn copy_file_into_vault(
 }
 
 #[tauri::command]
-pub fn read_dir(vault_root: String, dir_path: String) -> Result<Vec<FileEntry>, String> {
-    let root = fs::canonicalize(&vault_root).map_err(|e| format!("Invalid vault root: {e}"))?;
-    let target = if dir_path.is_empty() {
-        root.clone()
-    } else {
-        validate_path(&vault_root, &dir_path)?
-    };
-    read_dir_recursive(&root, &target)
+pub async fn read_dir(vault_root: String, dir_path: String) -> Result<Vec<FileEntry>, String> {
+    tokio::task::spawn_blocking(move || {
+        let root = fs::canonicalize(&vault_root).map_err(|e| format!("Invalid vault root: {e}"))?;
+        let target = if dir_path.is_empty() {
+            root.clone()
+        } else {
+            validate_path(&vault_root, &dir_path)?
+        };
+        read_dir_recursive(&root, &target, 0)
+    }).await.map_err(|e| e.to_string())?
 }
 
 /// Normalize a path by resolving `.` and `..` components without requiring the path to exist.
@@ -158,6 +164,10 @@ pub fn rename_entry(vault_root: String, old_path: String, new_path: String) -> R
 #[tauri::command]
 pub fn delete_entry(vault_root: String, entry_path: String) -> Result<(), String> {
     let path = validate_path(&vault_root, &entry_path)?;
+    let sym_metadata = fs::symlink_metadata(&path).map_err(|e| format!("Cannot access: {e}"))?;
+    if sym_metadata.file_type().is_symlink() {
+        return fs::remove_file(&path).map_err(|e| format!("Cannot delete symlink: {e}"));
+    }
     let metadata = fs::metadata(&path).map_err(|e| format!("Cannot access: {e}"))?;
     if metadata.is_dir() {
         fs::remove_dir_all(&path).map_err(|e| format!("Cannot delete directory: {e}"))
@@ -166,11 +176,20 @@ pub fn delete_entry(vault_root: String, entry_path: String) -> Result<(), String
     }
 }
 
-fn read_dir_recursive(vault_root: &Path, dir: &Path) -> Result<Vec<FileEntry>, String> {
+const MAX_RECURSION_DEPTH: u32 = 32;
+
+fn read_dir_recursive(vault_root: &Path, dir: &Path, depth: u32) -> Result<Vec<FileEntry>, String> {
+    if depth > MAX_RECURSION_DEPTH {
+        return Ok(Vec::new());
+    }
     let mut entries = Vec::new();
     let read = fs::read_dir(dir).map_err(|e| format!("Cannot read directory: {e}"))?;
     for entry in read {
         let entry = entry.map_err(|e| format!("Directory entry error: {e}"))?;
+        let file_type = entry.file_type().map_err(|e| format!("File type error: {e}"))?;
+        if file_type.is_symlink() {
+            continue;
+        }
         let name = entry.file_name().to_string_lossy().to_string();
         if name.starts_with('.') && name != ".gitignore" {
             continue;
@@ -195,7 +214,7 @@ fn read_dir_recursive(vault_root: &Path, dir: &Path) -> Result<Vec<FileEntry>, S
             modified_at,
         });
         if is_dir {
-            if let Ok(children) = read_dir_recursive(vault_root, &full_path) {
+            if let Ok(children) = read_dir_recursive(vault_root, &full_path, depth + 1) {
                 entries.extend(children);
             }
         }

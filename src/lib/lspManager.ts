@@ -103,8 +103,6 @@ async function doConnect(language: string, vaultPath: string, key: string): Prom
           delete parsed.params.capabilities.textDocument.diagnostic
           finalMessage = JSON.stringify(parsed)
         }
-        const extra = parsed.method === 'textDocument/didOpen' ? ` uri=${parsed.params?.textDocument?.uri}` : ''
-        console.log(`[LSP] >>> ${parsed.method || 'response'} (id: ${parsed.id ?? 'n/a'})${extra}`)
       } catch {}
       invoke('lsp_send', { serverId, message: finalMessage }).catch((err) => {
         console.error('LSP send error:', err)
@@ -118,11 +116,29 @@ async function doConnect(language: string, vaultPath: string, key: string): Prom
     },
   }
 
+  // Server-initiated requests that @codemirror/lsp-client can't handle —
+  // respond with success so the language server doesn't crash.
+  const serverRequestMethods = new Set([
+    'window/workDoneProgress/create',
+    'client/registerCapability',
+    'client/unregisterCapability',
+    'workspace/configuration',
+  ])
+
   // Listen for responses from Rust
   const eventName = `lsp_response_${serverId}`
   const unlisten = await listen<string>(eventName, (event) => {
     try {
       const parsed = JSON.parse(event.payload)
+
+      // Intercept server-initiated requests (has both method and id) before
+      // they reach @codemirror/lsp-client, which would reject with -32601
+      if (parsed.method && parsed.id != null && serverRequestMethods.has(parsed.method)) {
+        const response = JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null })
+        invoke('lsp_send', { serverId, message: response }).catch(() => {})
+        return
+      }
+
       if (parsed.method === 'textDocument/publishDiagnostics' && parsed.params) {
         const diags = parsed.params.diagnostics ?? []
         const errors = diags.filter((d: any) => d.severity === 1).length
@@ -171,13 +187,11 @@ async function doConnect(language: string, vaultPath: string, key: string): Prom
     extensions: [...languageServerExtensions(), progressExtension],
   })
 
-  console.log(`[LSP] Connecting ${language} client to server ${serverId}...`)
   emitLspStatus(language, 'connecting')
 
   const connectPromise = (async () => {
     client.connect(transport)
     await client.initializing
-    console.log(`[LSP] ${language} client initialized!`)
     return client
   })()
 
@@ -245,6 +259,7 @@ export function getLanguageId(filePath: string): string | null {
     case 'js': case 'jsx': return 'javascript'
     case 'rs': return 'rust'
     case 'py': return 'python'
+    case 'go': return 'go'
     case 'css': return 'css'
     case 'html': return 'html'
     case 'json': return 'json'
@@ -261,6 +276,7 @@ export function getServerLanguage(filePath: string): string | null {
     case 'ts': case 'tsx': case 'js': case 'jsx': return 'typescript'
     case 'rs': return 'rust'
     case 'py': return 'python'
+    case 'go': return 'go'
     case 'css': return 'css'
     case 'html': return 'html'
     case 'json': return 'json'

@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 #[tauri::command]
-pub fn init_vault(path: String) -> Result<(), String> {
+pub fn init_vault(path: String, vault_root: tauri::State<'_, crate::VaultRoot>) -> Result<(), String> {
     let vault_dir = Path::new(&path).join(".humanboard");
     if !vault_dir.exists() {
         fs::create_dir_all(&vault_dir).map_err(|e| format!("Cannot create .humanboard: {e}"))?;
@@ -32,17 +32,32 @@ pub fn init_vault(path: String) -> Result<(), String> {
                 .map_err(|e| format!("Cannot update .gitignore: {e}"))?;
         }
     }
+    *vault_root.0.lock().unwrap() = Some(path.clone());
     Ok(())
 }
 
 #[tauri::command]
-pub fn save_canvas(vault_path: String, snapshot: String) -> Result<(), String> {
+pub fn save_canvas(vault_path: String, snapshot: String, vault_root: tauri::State<'_, crate::VaultRoot>) -> Result<(), String> {
+    let stored = vault_root.0.lock().unwrap();
+    if let Some(ref root) = *stored {
+        if vault_path != *root {
+            return Err("Vault path does not match the stored vault root".into());
+        }
+    }
+    drop(stored);
     let canvas_path = Path::new(&vault_path).join(".humanboard/canvas.json");
     fs::write(&canvas_path, snapshot).map_err(|e| format!("Cannot save canvas: {e}"))
 }
 
 #[tauri::command]
-pub fn load_canvas(vault_path: String) -> Result<Option<String>, String> {
+pub fn load_canvas(vault_path: String, vault_root: tauri::State<'_, crate::VaultRoot>) -> Result<Option<String>, String> {
+    let stored = vault_root.0.lock().unwrap();
+    if let Some(ref root) = *stored {
+        if vault_path != *root {
+            return Err("Vault path does not match the stored vault root".into());
+        }
+    }
+    drop(stored);
     let canvas_path = Path::new(&vault_path).join(".humanboard/canvas.json");
     if !canvas_path.exists() {
         return Ok(None);
