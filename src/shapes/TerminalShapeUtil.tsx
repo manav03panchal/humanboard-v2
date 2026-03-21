@@ -182,7 +182,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
             term.write(String(data))
           }
         } catch (e) {
-          console.error('xterm write error:', e, 'data:', typeof data, JSON.stringify(data).slice(0, 200))
+          console.error('xterm write error:', e, 'data type:', typeof data)
         }
       })
 

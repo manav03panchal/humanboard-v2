@@ -55,9 +55,9 @@ export const useFileStore = create<FileStore>((set, get) => ({
 
   updateContent: (filePath, content) => {
     set((state) => {
+      const existing = state.files.get(filePath)
+      if (!existing || existing.content === content) return state
       const files = new Map(state.files)
-      const existing = files.get(filePath)
-      if (!existing) return state
       files.set(filePath, {
         ...existing,
         content,

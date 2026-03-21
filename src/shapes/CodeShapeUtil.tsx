@@ -89,6 +89,7 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
   const updateContent = useFileStore((s) => s.updateContent)
   const vaultPath = useVaultStore((s) => s.vaultPath)
   const vimMode = useEditorStore((s) => s.vimMode)
+  const ideMode = useEditorStore((s) => s.ideMode)
   const zedTheme = useThemeStore((s) => s.zedTheme)
   const getEditorBackground = useThemeStore((s) => s.getEditorBackground)
   const getEditorForeground = useThemeStore((s) => s.getEditorForeground)
@@ -104,7 +105,9 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
   const lspInitialized = useRef(false)
 
   useEffect(() => {
-    if (!vaultPath || lspInitialized.current) return
+    // Skip LSP when IDE mode is active — IDE editors own LSP in that mode
+    if (!vaultPath || ideMode) return
+    if (lspInitialized.current) return
     const serverLang = getServerLanguage(filePath)
     if (!serverLang) return
 
@@ -122,8 +125,13 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
     }).catch(() => {
       lspInitialized.current = false
     })
+    return () => {
+      // Tear down canvas LSP when ideMode changes or component unmounts
+      lspInitialized.current = false
+      setLspExt([])
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vaultPath, filePath])
+  }, [vaultPath, filePath, ideMode])
 
   const [langExt, setLangExt] = useState<Extension | null>(() => getLanguageExtension(filePath))
   useEffect(() => {

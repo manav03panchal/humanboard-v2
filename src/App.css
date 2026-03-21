@@ -258,11 +258,23 @@ body::-webkit-scrollbar {
   color: var(--hb-fg) !important;
 }
 
-/* GPU compositing for shape containers — no contain:paint (clips CM tooltips) */
+/* Shape containers: style containment only — layout/size containment
+   breaks CodeMirror's measure loop (needs stable layout feedback) */
 .tl-html-container {
+  contain: style;
+}
+.shape-content {
+  contain: style;
+}
+.tl-shape-container {
+  contain: style;
+}
+
+/* GPU acceleration — toggled via JS when a capable GPU is detected */
+.gpu-accelerated .tl-html-container {
   will-change: transform;
   backface-visibility: hidden;
-  -webkit-transform-style: preserve-3d;
+  isolation: isolate;
 }
 
 /* CodeMirror must scroll within its container */
@@ -297,9 +309,37 @@ body::-webkit-scrollbar {
   50% { opacity: 0.3; }
 }
 
-/* Dot grid pattern */
+/* Vim mode — command bar + cursor styling */
+.cm-vim-panel {
+  background-color: var(--hb-surface, #0a0a0a) !important;
+  color: var(--hb-fg, #fff) !important;
+  border-top: 1px solid var(--hb-border, #1a1a1a) !important;
+  font-family: "JetBrains Mono", Menlo, Monaco, monospace !important;
+  font-size: 13px !important;
+  padding: 2px 8px !important;
+}
+.cm-vim-panel input {
+  background: transparent !important;
+  color: var(--hb-fg, #fff) !important;
+  border: none !important;
+  outline: none !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+}
+.cm-fat-cursor .cm-cursor {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  border: none !important;
+}
+.cm-fat-cursor .cm-cursor-primary {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Dot grid pattern — GPU composited to avoid repaint during pan */
 .tl-grid {
   opacity: 0.15 !important;
+  will-change: transform;
+  contain: strict;
+  pointer-events: none;
 }
 
 /* Force xterm to fill terminal container — no gaps, no borders */

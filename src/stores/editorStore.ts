@@ -6,9 +6,11 @@ const MAX_FONT_SIZE = 32
 
 interface EditorStore {
   vimMode: boolean
+  ideMode: boolean
   activeFile: string | null
   fontSize: number
   toggleVimMode: () => void
+  setIdeMode: (v: boolean) => void
   setActiveFile: (path: string | null) => void
   zoomIn: () => void
   zoomOut: () => void
@@ -17,6 +19,7 @@ interface EditorStore {
 
 export const useEditorStore = create<EditorStore>((set) => ({
   vimMode: localStorage.getItem('humanboard_vim_mode') === 'true',
+  ideMode: false,
   activeFile: null,
   fontSize: Number(localStorage.getItem('humanboard_font_size')) || DEFAULT_FONT_SIZE,
 
@@ -26,6 +29,7 @@ export const useEditorStore = create<EditorStore>((set) => ({
     return { vimMode: next }
   }),
 
+  setIdeMode: (v) => set({ ideMode: v }),
   setActiveFile: (path) => set({ activeFile: path }),
 
   zoomIn: () => set((state) => {

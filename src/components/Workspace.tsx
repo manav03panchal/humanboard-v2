@@ -6,6 +6,7 @@ import { Canvas, StatusBar } from './Canvas'
 import { IdeLayout } from './IdeLayout'
 import { WindowTitleBar } from './WindowTitleBar'
 import { useFileStore } from '../stores/fileStore'
+import { useEditorStore } from '../stores/editorStore'
 import { useVaultStore } from '../stores/vaultStore'
 import { useToastStore } from './Toast'
 import { useThemeStore } from '../lib/theme'
@@ -26,7 +27,12 @@ export function Workspace() {
   const os = usePlatform()
   const isMac = os === 'macos'
   const [quickOpenOpen, setQuickOpenOpen] = useState(false)
-  const [ideMode, setIdeMode] = useState(false)
+  const ideMode = useEditorStore((s) => s.ideMode)
+  const setIdeMode = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
+    const prev = useEditorStore.getState().ideMode
+    const next = typeof v === 'function' ? v(prev) : v
+    useEditorStore.getState().setIdeMode(next)
+  }, [])
   const [themePickerOpen, setThemePickerOpen] = useState(false)
   const openFiles = useStoreWithEqualityFn(
     useFileStore,

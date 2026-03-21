@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { EditorView } from '@codemirror/view'
 import { Compartment, type Extension } from '@codemirror/state'
-import { vim } from '@replit/codemirror-vim'
+import { vim, Vim } from '@replit/codemirror-vim'
 import { useEditorStore } from '../stores/editorStore'
 import CodeMirror from '@uiw/react-codemirror'
 import ReactMarkdown from 'react-markdown'
@@ -16,6 +16,8 @@ import { IMAGE_EXTENSIONS as IMAGE_EXTS, MARKDOWN_EXTENSIONS as MD_EXTS, getExt 
 import { useFileStore } from '../stores/fileStore'
 import { useVaultStore } from '../stores/vaultStore'
 import { getLanguageExtension, loadLanguageExtension } from '../lib/language'
+import { lintGutter } from '@codemirror/lint'
+import { getLspClient, getServerLanguage, getLanguageId } from '../lib/lspManager'
 import { buildCodeMirrorTheme, useThemeStore } from '../lib/theme'
 import { getFileIcon } from '../lib/fileIcons'
 
@@ -249,22 +251,20 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
       const { filePath } = (e as CustomEvent).detail
       if (!filePath) return
       setRootPane((prev) => {
-        // If file is already in a tab, just activate it
         const leaf = findLeafWithTab(prev, filePath)
         if (leaf) {
-          useEditorStore.getState().setActiveFile(filePath)
           return updateLeaf(prev, leaf.id, (l) => ({ ...l, activeTab: filePath }))
         }
-        // Not in any pane — add to first leaf (sync effect will also handle this via openFiles)
         const addToFirst = (node: PaneNode): PaneNode => {
           if (node.type === 'leaf') {
             return { ...node, tabs: [...node.tabs, filePath], activeTab: filePath }
           }
           return { ...node, children: [addToFirst(node.children[0]), ...node.children.slice(1)] }
         }
-        useEditorStore.getState().setActiveFile(filePath)
         return addToFirst(prev)
       })
+      // Set active file outside of setRootPane to avoid setState-during-render
+      setTimeout(() => useEditorStore.getState().setActiveFile(filePath), 0)
     }
     window.addEventListener('humanboard:open-file', handler)
     return () => window.removeEventListener('humanboard:open-file', handler)
@@ -1248,8 +1248,58 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
   const getLineNumberColor = useThemeStore((s) => s.getLineNumberColor)
   const getActiveLineBackground = useThemeStore((s) => s.getActiveLineBackground)
 
-  // LSP skipped in IDE mode — canvas shapes already hold LSP plugins for open files,
-  // and @codemirror/lsp-client doesn't support multiple views on the same URI.
+  // Wire vim :w, :wq, :q commands
+  useEffect(() => {
+    if (!vimMode) return
+    Vim.defineEx('write', 'w', () => {
+      saveFile(vaultPath, filePath)
+    })
+    Vim.defineEx('quit', 'q', () => {
+      useFileStore.getState().closeFile(filePath)
+      // Focus next editor after React re-renders
+      setTimeout(() => {
+        const cm = document.querySelector('.cm-editor .cm-content') as HTMLElement
+        cm?.focus()
+      }, 50)
+    })
+    Vim.defineEx('wquit', 'wq', () => {
+      saveFile(vaultPath, filePath).then(() => {
+        useFileStore.getState().closeFile(filePath)
+        setTimeout(() => {
+          const cm = document.querySelector('.cm-editor .cm-content') as HTMLElement
+          cm?.focus()
+        }, 50)
+      })
+    })
+  }, [vimMode, vaultPath, filePath, saveFile])
+
+  // LSP — only active in IDE mode (canvas shapes own LSP in canvas mode)
+  // Delayed init: canvas LSP cleanup runs first, then IDE takes over the URI
+  const ideMode = useEditorStore((s) => s.ideMode)
+  const [lspExt, setLspExt] = useState<Extension[]>([])
+  const lspInitialized = useRef(false)
+  useEffect(() => {
+    if (!vaultPath || !ideMode) return
+    if (lspInitialized.current) return
+    const serverLang = getServerLanguage(filePath)
+    if (!serverLang) return
+    // Delay so canvas shapes' LSP cleanup effect runs first
+    const timer = setTimeout(() => {
+      lspInitialized.current = true
+      getLspClient(serverLang, vaultPath).then((client) => {
+        if (!client) { lspInitialized.current = false; return }
+        const fileUri = `file://${vaultPath}/${filePath}`
+        const langId = getLanguageId(filePath) ?? serverLang
+        const ext = client.plugin(fileUri, langId)
+        setLspExt([ext, lintGutter()])
+      }).catch(() => { lspInitialized.current = false })
+    }, 100)
+    return () => {
+      clearTimeout(timer)
+      lspInitialized.current = false
+      setLspExt([])
+    }
+  }, [vaultPath, filePath, ideMode])
 
   const [langExt, setLangExt] = useState<Extension | null>(() => getLanguageExtension(filePath))
   useEffect(() => {
@@ -1278,10 +1328,11 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
       ...(vimMode ? [vim()] : []),
       ...cmTheme,
       ...(langExt ? [langExt] : []),
+      ...lspExt,
     ],
     // fontSize deliberately excluded — handled by compartment reconfigure below
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cmTheme, langExt, vimMode, fontCompartment]
+    [cmTheme, langExt, lspExt, vimMode, fontCompartment]
   )
 
   // Reconfigure only the font compartment — no full extension rebuild
@@ -1300,6 +1351,18 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
       })),
     })
   }, [fontSize, fontCompartment])
+
+  // Auto-focus editor on mount (after :q switches tabs, new file opens, etc.)
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      const wrap = editorWrapRef.current
+      if (!wrap) return
+      const cmEl = wrap.querySelector('.cm-editor')
+      if (!cmEl) return
+      const view = EditorView.findFromDOM(cmEl as HTMLElement)
+      view?.focus()
+    })
+  }, [filePath])
 
   const handleChange = useCallback(
     (value: string) => updateContent(filePath, value),

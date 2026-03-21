@@ -22,9 +22,22 @@ import { useToastStore } from './Toast'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 
-const TLDRAW_OPTIONS = { maxPages: 1, debouncedZoom: false } as const
+const TLDRAW_OPTIONS = {
+  maxPages: 1,
+  // Debounced zoom: use cached rendering during camera movement.
+  // Our shapes (CodeMirror, xterm) are heavy — rendering them at every
+  // zoom frame kills perf. Low threshold since each shape is expensive.
+  debouncedZoom: true,
+  debouncedZoomThreshold: 50,
+  // Snappier animations (default ~500ms feels sluggish)
+  animationMediumMs: 200,
+  animationShortMs: 100,
+  // Disable text shadows at low zoom (saves GPU compositing)
+  textShadowLod: 0.5,
+} as const
 
 const tldrawComponents: TLComponents = {
+  // Default toolbar + style panel (no wrapper overhead)
   Toolbar: (props) => (
     <DefaultToolbar {...props}>
       <DefaultToolbarContent />
@@ -35,7 +48,7 @@ const tldrawComponents: TLComponents = {
       <DefaultStylePanelContent />
     </DefaultStylePanel>
   ),
-  // Hide pieces we don't need
+  // Kill unused UI — less DOM, less rendering
   MainMenu: null,
   PageMenu: null,
   NavigationPanel: null,
@@ -250,14 +263,18 @@ export function Canvas() {
       // Enable grid (dot pattern)
       editor.updateInstanceState({ isGridMode: true })
 
-      // Emit zoom level changes
+      // Emit zoom level changes (throttled — smooth zoom fires 60+/sec)
+      let lastZoom = -1
       const emitZoom = () => {
+        const z = editor.getZoomLevel()
+        if (z === lastZoom) return
+        lastZoom = z
         window.dispatchEvent(
-          new CustomEvent('humanboard:zoom-changed', { detail: editor.getZoomLevel() })
+          new CustomEvent('humanboard:zoom-changed', { detail: z })
         )
       }
       emitZoom()
-      editor.store.listen(emitZoom, { scope: 'session' })
+      const unlistenZoom = editor.store.listen(emitZoom, { scope: 'session' })
 
       if (vaultPath) {
         loadCanvasState(editor, vaultPath).then(() => {
@@ -283,7 +300,7 @@ export function Canvas() {
         })
       }
       // Auto-save on changes (debounced 2s)
-      editor.store.listen(
+      const unlistenSave = editor.store.listen(
         () => {
           if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
           if (!vaultPath) return
@@ -295,6 +312,12 @@ export function Canvas() {
         },
         { scope: 'document' }
       )
+
+      // Cleanup store listeners on unmount
+      return () => {
+        unlistenZoom()
+        unlistenSave()
+      }
     },
     [vaultPath]
   )

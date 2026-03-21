@@ -28,6 +28,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
   const os = usePlatform()
   const titlebarSpacerHeight = os === 'macos' ? 38 : os === 'linux' ? 0 : 32
 
+  const sidebarRef = useRef<HTMLDivElement>(null)
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
     isResizing.current = true
@@ -36,11 +37,15 @@ export function Sidebar({ onFileClick }: SidebarProps) {
 
     const onMove = (e: PointerEvent) => {
       const newWidth = Math.max(180, Math.min(500, startWidth + (e.clientX - startX)))
-      setWidth(newWidth)
+      // Update DOM directly during drag — no React re-render per pixel
+      if (sidebarRef.current) sidebarRef.current.style.width = `${newWidth}px`
     }
 
-    const onUp = () => {
+    const onUp = (e: PointerEvent) => {
       isResizing.current = false
+      // Sync final width to React state once on drop
+      const finalWidth = Math.max(180, Math.min(500, startWidth + (e.clientX - startX)))
+      setWidth(finalWidth)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
@@ -78,6 +83,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
 
   return (
     <div
+      ref={sidebarRef}
       style={{
         width: sidebarOpen ? width : 0,
         minWidth: sidebarOpen ? width : 0,
