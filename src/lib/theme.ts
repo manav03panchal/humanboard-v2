@@ -277,6 +277,8 @@ export function buildCodeMirrorTheme(theme: CodeMirrorThemeInput): Extension[] {
       '&': {
         fontFamily: '"JetBrains Mono", Menlo, Monaco, monospace',
         fontSize: '14px',
+        fontVariantLigatures: 'contextual',
+        fontFeatureSettings: '"calt" 1, "liga" 1',
         backgroundColor: bg,
         color: fg,
       },

@@ -9,6 +9,7 @@ import {
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
+import { LigaturesAddon } from '@xterm/addon-ligatures'
 import { spawn } from 'tauri-pty'
 import { useThemeStore } from '../lib/theme'
 import { usePtyStore } from '../stores/ptyStore'
@@ -90,7 +91,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
 
     const term = new Terminal({
       cursorBlink: true,
-      fontFamily: '"JetBrains Mono", Menlo, Monaco, monospace',
+      fontFamily: '"JetBrains Mono NF", "JetBrains Mono", Menlo, Monaco, monospace',
       fontSize: 14,
       scrollback: 1000,
       drawBoldTextInBrightColors: false,
@@ -123,6 +124,11 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
     const fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
     term.open(termContainerRef.current)
+
+    // Ligatures — load before WebGL
+    try {
+      term.loadAddon(new LigaturesAddon({ fontFeatureSettings: '"calt" on, "liga" on' }))
+    } catch {}
 
     // Use WebGL renderer for performance (falls back to DOM if unsupported)
     try {

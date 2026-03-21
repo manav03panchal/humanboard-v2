@@ -97,7 +97,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
       onDrop={handleDrop}
     >
       <div style={{ height: titlebarSpacerHeight }} /> {/* titlebar spacer — clears traffic lights on macOS, custom titlebar on Win/Linux */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '3px 6px', borderBottom: '1px solid var(--hb-border)', gap: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', height: 36, padding: '0 6px', borderBottom: '1px solid var(--hb-border)', gap: 2, flexShrink: 0 }}>
         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <SidebarVaultDropdown />
         </div>

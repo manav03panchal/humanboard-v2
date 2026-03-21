@@ -39,9 +39,10 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Cmd+P — toggle quick open
+      // Cmd+P — toggle quick open (stopImmediatePropagation to block WebKitGTK print dialog)
       if (meta && e.key === 'p') {
         e.preventDefault()
+        e.stopImmediatePropagation()
         window.dispatchEvent(new CustomEvent('humanboard:toggle-quick-open'))
         return
       }

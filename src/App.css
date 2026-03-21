@@ -257,6 +257,18 @@ body::-webkit-scrollbar {
 .cm-editor {
   height: 100% !important;
 }
+
+/* Font ligatures — JetBrains Mono supports => -> !== === etc. */
+.cm-editor,
+.cm-editor .cm-content,
+.cm-editor .cm-line,
+.cm-editor .cm-line span {
+  font-variant-ligatures: contextual !important;
+  font-feature-settings: "calt" 1, "liga" 1 !important;
+  -webkit-font-feature-settings: "calt" 1, "liga" 1 !important;
+  text-rendering: optimizeLegibility !important;
+  -webkit-text-rendering: optimizeLegibility !important;
+}
 .cm-scroller {
   overflow: auto !important;
   overscroll-behavior: contain !important;
@@ -278,15 +290,48 @@ body::-webkit-scrollbar {
   opacity: 0.15 !important;
 }
 
-/* Force xterm to fill terminal container */
+/* Force xterm to fill terminal container — no gaps, no borders */
 .terminal-container .xterm {
   height: 100% !important;
+  padding: 0 !important;
+  border: none !important;
+  outline: none !important;
 }
 .terminal-container .xterm-viewport {
   height: 100% !important;
+  width: 100% !important;
+  border: none !important;
+  outline: none !important;
+  overflow-y: auto !important;
 }
 .terminal-container .xterm-screen {
   height: 100% !important;
+  width: 100% !important;
+}
+.terminal-container .xterm-helper-textarea {
+  top: 0 !important;
+}
+.terminal-container .xterm-decoration-container {
+  border: none !important;
+}
+.terminal-container,
+.terminal-container .xterm,
+.terminal-container .xterm-viewport {
+  background-color: var(--hb-editor-bg, #000) !important;
+  border: none !important;
+  outline: none !important;
+}
+/* Kill any focus ring on terminal */
+.terminal-container *:focus {
+  outline: none !important;
+}
+/* Hide xterm scrollbar — use terminal scroll instead */
+.terminal-container .xterm-viewport::-webkit-scrollbar {
+  width: 4px;
+}
+.terminal-container .xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
 }
 
 /* Markdown rendered view */

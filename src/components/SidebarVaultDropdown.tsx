@@ -74,7 +74,7 @@ export function SidebarVaultDropdown() {
         <span
           style={{
             flex: 1,
-            fontSize: 11,
+            fontSize: 13,
             color: 'var(--hb-text-muted)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',

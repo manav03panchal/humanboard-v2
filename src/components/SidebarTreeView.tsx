@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown } from 'lucide-react'
 import { getFileIcon } from '../lib/fileIcons'
 import { getLanguageName } from '../lib/language'
 import { useDiagnosticStore } from '../stores/diagnosticStore'
+import { useEditorStore } from '../stores/editorStore'
 import type { TreeNode } from '../stores/vaultStore'
 import type { ContextMenuState } from './SidebarContextMenu'
 
@@ -179,6 +180,7 @@ function TreeFileItem({
 }) {
   const Icon = getFileIcon(path, false)
   const diag = useDiagnosticStore((s) => s.files.get(path))
+  const isActive = useEditorStore((s) => s.activeFile === path)
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
@@ -226,14 +228,15 @@ function TreeFileItem({
         gap: 5,
         padding: '2px 8px',
         paddingLeft: 8 + depth * 14 + 14,
-        backgroundColor: 'transparent',
+        backgroundColor: isActive ? 'var(--hb-hover)' : 'transparent',
         border: 'none',
-        color: 'var(--hb-fg)',
+        color: isActive ? 'var(--hb-fg)' : 'var(--hb-fg)',
         fontSize: 14,
         cursor: 'grab',
         width: '100%',
         textAlign: 'left',
         borderRadius: 3,
+        fontWeight: isActive ? 500 : 400,
       }}
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}

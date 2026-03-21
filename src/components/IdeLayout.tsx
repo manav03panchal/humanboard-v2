@@ -8,11 +8,8 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
-import { Terminal as TerminalIcon, X, Eye, Code } from 'lucide-react'
-import { Terminal } from '@xterm/xterm'
-import { FitAddon } from '@xterm/addon-fit'
-import { WebglAddon } from '@xterm/addon-webgl'
-import { spawn } from 'tauri-pty'
+import { Terminal as TerminalIcon, Plus, X, Eye, Code } from 'lucide-react'
+import { createTerminal, getTerminal, mountTerminal, destroyTerminal, updateTerminalTheme } from '../lib/terminalManager'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { IMAGE_EXTENSIONS as IMAGE_EXTS, MARKDOWN_EXTENSIONS as MD_EXTS, getExt } from '../lib/fileTypes'
 import { useFileStore } from '../stores/fileStore'
@@ -186,6 +183,11 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
   const [rootPane, setRootPane] = useState<PaneNode>(() =>
     createLeaf(openFiles, openFiles[0])
   )
+
+  // Set initial active file after mount
+  useEffect(() => {
+    if (openFiles[0]) useEditorStore.getState().setActiveFile(openFiles[0])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [previewFiles, setPreviewFiles] = useState<Set<string>>(new Set())
   const togglePreview = useCallback((filePath: string) => {
     setPreviewFiles((prev) => {
@@ -221,6 +223,7 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
       updated = cleaned
 
       // Add new files not yet in any pane
+      let lastAdded: string | null = null
       for (const file of openFiles) {
         if (!findLeafWithTab(updated, file)) {
           const addToFirst = (node: PaneNode): PaneNode => {
@@ -231,8 +234,10 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
             return { ...node, children: [addToFirst(node.children[0]), ...node.children.slice(1)] }
           }
           updated = addToFirst(updated)
+          lastAdded = file
         }
       }
+      if (lastAdded) setTimeout(() => useEditorStore.getState().setActiveFile(lastAdded!), 0)
       return updated
     })
   }, [openFiles, onClose])
@@ -251,6 +256,7 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
 
   const handleActivateTab = useCallback((paneId: PaneId, filePath: string) => {
     setRootPane((prev) => updateLeaf(prev, paneId, (leaf) => ({ ...leaf, activeTab: filePath })))
+    useEditorStore.getState().setActiveFile(filePath)
   }, [])
 
   const handleReorderTabs = useCallback((paneId: PaneId, tabs: string[]) => {
@@ -400,28 +406,7 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
             <div style={{ position: 'absolute', top: -3, bottom: -3, left: 0, right: 0 }} />
           </div>
           <div style={{ height: terminalHeight, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', height: 28,
-              backgroundColor: 'var(--hb-surface)', borderBottom: '1px solid var(--hb-border)',
-              padding: '0 8px', flexShrink: 0, gap: 8,
-            }}>
-              <TerminalIcon size={12} color="var(--hb-text-muted)" />
-              <span style={{ fontSize: 11, color: 'var(--hb-text-muted)', fontFamily: '"JetBrains Mono", monospace' }}>Terminal</span>
-              <button
-                onClick={() => setTerminalOpen(false)}
-                style={{
-                  marginLeft: 'auto', background: 'none', border: 'none',
-                  color: 'var(--hb-text-muted)', cursor: 'pointer', padding: 2, display: 'flex',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
-              >
-                <X size={12} />
-              </button>
-            </div>
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-              <IdeTerminal />
-            </div>
+            <TerminalPanel onClose={() => setTerminalOpen(false)} />
           </div>
         </>
       )}
@@ -791,98 +776,340 @@ function Tab({ filePath, isActive, isPreview, onTogglePreview, onClick, onClose,
   )
 }
 
-// ─── IDE Terminal ───
+// ─── Terminal Panel (tabbed) ───
 
-function IdeTerminal() {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const termRef = useRef<Terminal | null>(null)
-  const getEditorBackground = useThemeStore((s) => s.getEditorBackground)
-  const getEditorForeground = useThemeStore((s) => s.getEditorForeground)
-  const vaultPath = useVaultStore((s) => s.vaultPath)
+let termIdCounter = 0
 
-  useEffect(() => {
-    if (!containerRef.current) return
+interface TermPane {
+  id: number
+  tabs: { id: number; label: string }[]
+  activeTab: number
+}
 
-    const editorBg = getEditorBackground()
-    const editorFg = getEditorForeground()
+function TerminalPanel({ onClose }: { onClose: () => void }) {
+  const [panes, setPanes] = useState<TermPane[]>(() => {
+    const tid = ++termIdCounter
+    return [{ id: 1, tabs: [{ id: tid, label: 'zsh' }], activeTab: tid }]
+  })
+  const [sizes, setSizes] = useState<number[]>([100])
+  const paneSlotRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+  const [dragInfo, setDragInfo] = useState<{ termId: number; paneId: number } | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ paneId: number; zone: 'left' | 'right' | 'center' } | null>(null)
 
-    const term = new Terminal({
-      cursorBlink: true,
-      fontFamily: '"JetBrains Mono", Menlo, Monaco, monospace',
-      fontSize: 14,
-      scrollback: 5000,
-      drawBoldTextInBrightColors: false,
-      theme: {
-        background: editorBg,
-        foreground: editorFg,
-        cursor: editorFg,
-        cursorAccent: editorBg,
-        selectionBackground: 'rgba(255, 255, 255, 0.15)',
-      },
-      allowProposedApi: true,
+  const addTab = useCallback((paneId?: number) => {
+    const tid = ++termIdCounter
+    setPanes((prev) => {
+      const targetId = paneId ?? prev[prev.length - 1]?.id
+      return prev.map((p) => p.id !== targetId ? p : {
+        ...p, tabs: [...p.tabs, { id: tid, label: 'zsh' }], activeTab: tid,
+      })
     })
+  }, [])
 
-    const fitAddon = new FitAddon()
-    term.loadAddon(fitAddon)
-    term.open(containerRef.current)
-
-    try {
-      const webglAddon = new WebglAddon()
-      webglAddon.onContextLoss(() => webglAddon.dispose())
-      term.loadAddon(webglAddon)
-    } catch {}
-
-    termRef.current = term
-
-    document.fonts.ready.then(() => {
-      setTimeout(() => { try { fitAddon.fit() } catch {} }, 50)
+  const closeTab = useCallback((paneId: number, termId: number) => {
+    destroyTerminal(termId)
+    setPanes((prev) => {
+      const pane = prev.find((p) => p.id === paneId)
+      if (!pane) return prev
+      const nextTabs = pane.tabs.filter((t) => t.id !== termId)
+      if (nextTabs.length === 0) {
+        const nextPanes = prev.filter((p) => p.id !== paneId)
+        if (nextPanes.length === 0) { setTimeout(onClose, 0); return prev }
+        setSizes(nextPanes.map(() => 100 / nextPanes.length))
+        return nextPanes
+      }
+      const nextActive = pane.activeTab === termId ? nextTabs[nextTabs.length - 1].id : pane.activeTab
+      return prev.map((p) => p.id !== paneId ? p : { ...p, tabs: nextTabs, activeTab: nextActive })
     })
+  }, [onClose])
 
-    // Spawn PTY
-    const pty = spawn('/bin/zsh', [], {
-      cols: term.cols,
-      rows: term.rows,
-      cwd: vaultPath || undefined,
-      name: 'xterm-256color',
+  const activateTab = useCallback((paneId: number, termId: number) => {
+    setPanes((prev) => prev.map((p) => p.id !== paneId ? p : { ...p, activeTab: termId }))
+  }, [])
+
+  const handleDragStart = useCallback((termId: number, paneId: number, e: React.DragEvent) => {
+    setDragInfo({ termId, paneId })
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(termId))
+  }, [])
+
+  const handlePaneDragOver = useCallback((paneId: number, e: React.DragEvent) => {
+    if (!dragInfo) return
+    e.preventDefault()
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const x = (e.clientX - rect.left) / rect.width
+    const zone = x < 0.3 ? 'left' as const : x > 0.7 ? 'right' as const : 'center' as const
+    setDropTarget({ paneId, zone })
+  }, [dragInfo])
+
+  const handlePaneDrop = useCallback((paneId: number, e: React.DragEvent) => {
+    e.preventDefault()
+    if (!dragInfo || !dropTarget) { setDragInfo(null); setDropTarget(null); return }
+
+    const { paneId: srcPaneId } = dragInfo
+    const { zone } = dropTarget
+    setDragInfo(null)
+    setDropTarget(null)
+
+    if (zone === 'center' && srcPaneId === paneId) return // no-op
+
+    setPanes((prev) => {
+      // Remove the dragged tab from its source pane
+      let tab: { id: number; label: string } | undefined
+      let afterRemove = prev.map((p) => {
+        if (p.id !== srcPaneId) return p
+        tab = p.tabs.find((t) => t.id === dragInfo.termId)
+        const nextTabs = p.tabs.filter((t) => t.id !== dragInfo.termId)
+        if (nextTabs.length === 0) return null
+        return { ...p, tabs: nextTabs, activeTab: p.activeTab === dragInfo.termId ? nextTabs[nextTabs.length - 1].id : p.activeTab }
+      }).filter(Boolean) as TermPane[]
+      if (!tab) return prev
+
+      if (zone === 'center') {
+        // Move tab into existing pane
+        const result = afterRemove.map((p) => p.id !== paneId ? p : {
+          ...p, tabs: [...p.tabs, tab!], activeTab: tab!.id,
+        })
+        setSizes(result.map(() => 100 / result.length))
+        return result
+      } else {
+        // Split — move tab into a new pane
+        const newPaneId = ++termIdCounter
+        const newPane: TermPane = { id: newPaneId, tabs: [tab], activeTab: tab.id }
+        const idx = afterRemove.findIndex((p) => p.id === paneId)
+        if (idx === -1) return prev
+        const result = [...afterRemove]
+        const insertAt = zone === 'left' ? idx : idx + 1
+        result.splice(insertAt, 0, newPane)
+        setSizes(result.map(() => 100 / result.length))
+        return result
+      }
     })
+  }, [dragInfo, dropTarget])
 
-    pty.onData((data: any) => {
-      try {
-        if (typeof data === 'string') term.write(data)
-        else if (data instanceof Uint8Array) term.write(data)
-        else if (Array.isArray(data)) term.write(new Uint8Array(data))
-        else if (data && typeof data === 'object') term.write(new Uint8Array(Object.values(data) as number[]))
-        else term.write(String(data))
-      } catch {}
-    })
+  const handleDragEnd = useCallback(() => {
+    setDragInfo(null)
+    setDropTarget(null)
+  }, [])
 
-    term.onData((data: string) => {
-      try { pty.write(data) } catch {}
-    })
+  // Divider resize
+  const handleDividerDrag = useCallback((index: number, e: React.PointerEvent) => {
+    e.preventDefault()
+    const container = e.currentTarget.parentElement
+    if (!container) return
+    const startX = e.clientX
+    const containerWidth = container.parentElement?.offsetWidth ?? container.offsetWidth
+    const startSizes = [...sizes]
 
-    // Resize observer
-    const resizeObserver = new ResizeObserver(() => {
-      try {
-        fitAddon.fit()
-        pty.resize(term.cols, term.rows)
-      } catch {}
-    })
-    resizeObserver.observe(containerRef.current)
-
-    return () => {
-      resizeObserver.disconnect()
-      try { pty.kill() } catch {}
-      term.dispose()
+    const onMove = (e: PointerEvent) => {
+      const delta = (e.clientX - startX) / containerWidth * 100
+      const newSizes = [...startSizes]
+      newSizes[index] = Math.max(15, startSizes[index] + delta)
+      newSizes[index + 1] = Math.max(15, startSizes[index + 1] - delta)
+      setSizes(newSizes)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+    }
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+  }, [sizes])
 
   return (
-    <div
-      ref={containerRef}
-      className="terminal-container"
-      style={{ width: '100%', height: '100%', overflow: 'hidden' }}
-    />
+    <>
+      {/* Global tab bar + controls */}
+      <div style={{
+        display: 'flex', alignItems: 'center', height: 28,
+        backgroundColor: 'var(--hb-surface)', borderBottom: '1px solid var(--hb-border)',
+        padding: '0 4px', flexShrink: 0,
+      }}>
+        <TerminalIcon size={11} color="var(--hb-text-muted)" style={{ marginRight: 6 }} />
+        <span style={{ fontSize: 11, color: 'var(--hb-text-muted)', fontFamily: '"JetBrains Mono", monospace', marginRight: 8 }}>
+          Terminal
+        </span>
+        <button onClick={() => addTab()} title="New terminal" style={{
+          background: 'none', border: 'none', color: 'var(--hb-text-muted)',
+          cursor: 'pointer', padding: '0 4px', display: 'flex', alignItems: 'center',
+        }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
+        ><Plus size={12} /></button>
+        <button onClick={onClose} title="Close panel" style={{
+          marginLeft: 'auto', background: 'none', border: 'none',
+          color: 'var(--hb-text-muted)', cursor: 'pointer', padding: 2, display: 'flex',
+        }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
+        ><X size={12} /></button>
+      </div>
+
+      {/* Split panes */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+        {panes.map((pane, pi) => (
+          <div key={pane.id} style={{ display: 'contents' }}>
+            <div
+              style={{ width: `calc(${sizes[pi]}% - ${pi < panes.length - 1 ? 1 : 0}px)`, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}
+              onDragOver={(e) => handlePaneDragOver(pane.id, e)}
+              onDrop={(e) => handlePaneDrop(pane.id, e)}
+              onDragLeave={() => setDropTarget(null)}
+            >
+              {/* Per-pane tab bar */}
+              <div style={{
+                display: 'flex', alignItems: 'center', height: 30,
+                backgroundColor: 'var(--hb-bg)', borderBottom: '1px solid var(--hb-border)',
+                padding: '0 4px', flexShrink: 0, overflow: 'hidden',
+              }}>
+                {pane.tabs.map((tab) => (
+                  <div
+                    key={tab.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(tab.id, pane.id, e)}
+                    onDragEnd={handleDragEnd}
+                    onClick={() => activateTab(pane.id, tab.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '0 10px', height: '100%', cursor: 'grab',
+                      fontSize: 12, fontFamily: '"JetBrains Mono", monospace',
+                      color: tab.id === pane.activeTab ? 'var(--hb-fg)' : 'var(--hb-text-muted)',
+                      borderBottom: tab.id === pane.activeTab ? '1px solid #528bff' : '1px solid transparent',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <TerminalIcon size={11} />
+                    <span>{tab.label}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); closeTab(pane.id, tab.id) }}
+                      style={{ background: 'none', border: 'none', color: 'var(--hb-text-muted)', cursor: 'pointer', padding: 1, display: 'flex' }}
+                    ><X size={11} /></button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Terminal area */}
+              <div
+                ref={(el) => { if (el) paneSlotRefs.current.set(pane.id, el); }}
+                style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
+              >
+                {pane.tabs.map((tab) => {
+                  const isActive = tab.id === pane.activeTab
+                  return (
+                    <div key={tab.id} style={{
+                      position: 'absolute', inset: 0,
+                      visibility: isActive ? 'visible' : 'hidden',
+                      zIndex: isActive ? 1 : 0,
+                    }}>
+                      <SingleTerminal id={tab.id} visible={isActive} onTitle={(title) => {
+                        setPanes((prev) => prev.map((p) => ({
+                          ...p,
+                          tabs: p.tabs.map((t) => t.id !== tab.id ? t : { ...t, label: title }),
+                        })))
+                      }} />
+                    </div>
+                  )
+                })}
+
+                {/* Invisible drag capture overlay — only during drag, sits above terminal canvas */}
+                {dragInfo && (
+                  <div
+                    onDragOver={(e) => handlePaneDragOver(pane.id, e)}
+                    onDrop={(e) => handlePaneDrop(pane.id, e)}
+                    onDragLeave={() => setDropTarget(null)}
+                    style={{
+                      position: 'absolute', inset: 0, zIndex: 20,
+                      backgroundColor: 'transparent',
+                    }}
+                  />
+                )}
+
+                {/* Drop zone overlay */}
+                {dropTarget?.paneId === pane.id && dropTarget.zone !== 'center' && (
+                  <div style={{
+                    position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 25,
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      backgroundColor: 'rgba(82, 139, 255, 0.12)',
+                      border: '2px solid rgba(82, 139, 255, 0.4)',
+                      borderRadius: 4,
+                      ...(dropTarget.zone === 'left' ? { left: 0, top: 0, bottom: 0, width: '50%' } : { right: 0, top: 0, bottom: 0, width: '50%' }),
+                    }} />
+                  </div>
+                )}
+                {dropTarget?.paneId === pane.id && dropTarget.zone === 'center' && (
+                  <div style={{
+                    position: 'absolute', inset: 4, border: '2px solid rgba(82, 139, 255, 0.3)',
+                    borderRadius: 4, pointerEvents: 'none', zIndex: 25,
+                  }} />
+                )}
+              </div>
+            </div>
+
+            {/* Divider */}
+            {pi < panes.length - 1 && (
+              <div
+                onPointerDown={(e) => handleDividerDrag(pi, e)}
+                style={{
+                  width: 1, height: '100%', backgroundColor: 'var(--hb-border)',
+                  cursor: 'col-resize', flexShrink: 0, position: 'relative', zIndex: 5,
+                }}
+              >
+                <div style={{ position: 'absolute', left: -3, right: -3, top: 0, bottom: 0 }} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+    </>
   )
+}
+
+function SingleTerminal({ id, visible, onTitle }: { id: number; visible: boolean; onTitle?: (title: string) => void }) {
+  const slotRef = useRef<HTMLDivElement>(null)
+  const vaultPath = useVaultStore((s) => s.vaultPath)
+  const zedTheme = useThemeStore((s) => s.zedTheme)
+
+  // Create terminal (if needed) and mount into slot
+  useEffect(() => {
+    const managed = createTerminal(id, vaultPath || undefined)
+    if (onTitle) {
+      managed.onTitleChange = (title) => {
+        const short = title.split('/').pop()?.split(' ')[0] ?? title
+        onTitle(short.substring(0, 20))
+      }
+    }
+    // Don't destroy on unmount — the manager owns the lifecycle
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mount/re-mount the terminal DOM into this slot on every render
+  // This is the key — when React re-parents this component, the
+  // slot ref changes, and we just appendChild the existing terminal
+  // container into the new slot. No unmount, no PTY reset.
+  useEffect(() => {
+    if (slotRef.current) mountTerminal(id, slotRef.current)
+  })
+
+  // Refit when visible
+  useEffect(() => {
+    if (visible) {
+      const managed = getTerminal(id)
+      if (managed) {
+        requestAnimationFrame(() => {
+          try {
+            managed.fitAddon.fit()
+            managed.pty.resize(managed.term.cols, managed.term.rows)
+            managed.term.focus()
+          } catch {}
+        })
+      }
+    }
+  }, [visible, id])
+
+  // Theme changes
+  useEffect(() => { updateTerminalTheme() }, [zedTheme])
+
+  return <div ref={slotRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
 }
 
 // File type helpers imported from '../lib/fileTypes' at top of file

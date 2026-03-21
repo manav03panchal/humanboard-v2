@@ -2,6 +2,7 @@ import { memo, useCallback } from 'react'
 import { getFileIcon } from '../lib/fileIcons'
 import { getLanguageName } from '../lib/language'
 import { useDiagnosticStore } from '../stores/diagnosticStore'
+import { useEditorStore } from '../stores/editorStore'
 import type { ContextMenuState } from './SidebarContextMenu'
 
 interface SidebarFileItemProps {
@@ -15,6 +16,7 @@ interface SidebarFileItemProps {
 
 export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir, modifiedAt, onClick, onContextMenu }: SidebarFileItemProps) {
   const diag = useDiagnosticStore((s) => s.files.get(path))
+  const isActive = useEditorStore((s) => s.activeFile === path)
   const Icon = getFileIcon(path, isDir)
   const dateStr = formatDate(modifiedAt)
 
@@ -64,10 +66,11 @@ export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir
         alignItems: 'center',
         gap: 6,
         padding: '2px 10px',
-        backgroundColor: 'transparent',
+        backgroundColor: isActive ? 'var(--hb-hover)' : 'transparent',
         border: 'none',
         color: 'var(--hb-fg)',
         fontSize: 14,
+        fontWeight: isActive ? 500 : 400,
         cursor: isDir ? 'pointer' : 'grab',
         width: '100%',
         textAlign: 'left',
