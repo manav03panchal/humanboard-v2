@@ -88,6 +88,7 @@ export function SidebarTreeView({ entries, searchQuery, onFileClick, onContextMe
         {filtered.map((f) => (
           <TreeFileItem key={f.path} name={f.name} path={f.path} depth={0} onClick={onFileClick} onContextMenu={onContextMenu} />
         ))}
+        <div style={{ height: 32 }} />
       </div>
     )
   }
@@ -97,6 +98,7 @@ export function SidebarTreeView({ entries, searchQuery, onFileClick, onContextMe
       {tree.map((node) => (
         <TreeItem key={node.path} node={node} depth={0} onFileClick={onFileClick} onContextMenu={onContextMenu} />
       ))}
+      <div style={{ height: 32 }} />
     </div>
   )
 }
@@ -134,21 +136,21 @@ function TreeItem({
           display: 'flex',
           alignItems: 'center',
           gap: 4,
-          padding: '3px 8px',
-          paddingLeft: 8 + depth * 16,
+          padding: '2px 8px',
+          paddingLeft: 8 + depth * 14,
           backgroundColor: 'transparent',
           border: 'none',
           color: 'var(--hb-fg)',
-          fontSize: 13,
+          fontSize: 14,
           cursor: 'pointer',
           width: '100%',
           textAlign: 'left',
-          borderRadius: 4,
+          borderRadius: 3,
         }}
         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
-        <Chevron size={12} strokeWidth={1.5} color="var(--hb-text-muted)" />
+        <Chevron size={11} strokeWidth={1.5} color="var(--hb-text-muted)" />
         <Icon size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {node.name}
@@ -221,17 +223,17 @@ function TreeFileItem({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 6,
-        padding: '3px 8px',
-        paddingLeft: 8 + depth * 16 + 16,
+        gap: 5,
+        padding: '2px 8px',
+        paddingLeft: 8 + depth * 14 + 14,
         backgroundColor: 'transparent',
         border: 'none',
         color: 'var(--hb-fg)',
-        fontSize: 13,
+        fontSize: 14,
         cursor: 'grab',
         width: '100%',
         textAlign: 'left',
-        borderRadius: 4,
+        borderRadius: 3,
       }}
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}

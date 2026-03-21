@@ -14,6 +14,7 @@ import { customShapeUtils } from '../shapes'
 import { saveCanvasState, loadCanvasState } from '../lib/canvasPersistence'
 import { useVaultStore } from '../stores/vaultStore'
 import { useThemeStore } from '../lib/theme'
+import { useEditorStore } from '../stores/editorStore'
 import { useFileStore } from '../stores/fileStore'
 import { useFileWatcher } from '../hooks/useFileWatcher'
 import { getLanguageName } from '../lib/language'
@@ -79,6 +80,8 @@ export function StatusBar({ ideMode }: { ideMode?: boolean }) {
   const sidebarOpen = useVaultStore((s) => s.sidebarOpen)
   const toggleSidebar = useVaultStore((s) => s.toggleSidebar)
   const themeName = useThemeStore((s) => s.themeName)
+  const vimMode = useEditorStore((s) => s.vimMode)
+  const toggleVimMode = useEditorStore((s) => s.toggleVimMode)
 
   useEffect(() => {
     const zoomHandler = (e: Event) => {
@@ -138,7 +141,7 @@ export function StatusBar({ ideMode }: { ideMode?: boolean }) {
       </button>
       <button
         onClick={() => window.dispatchEvent(new CustomEvent('humanboard:toggle-ide-mode'))}
-        title={ideMode ? 'Canvas mode (Ctrl+I)' : 'IDE mode (Ctrl+I)'}
+        title={ideMode ? 'Canvas mode (Ctrl+E)' : 'IDE mode (Ctrl+E)'}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -192,6 +195,21 @@ export function StatusBar({ ideMode }: { ideMode?: boolean }) {
         onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
       >
         {themeName}
+      </button>
+      <button
+        onClick={toggleVimMode}
+        title="Toggle Vim mode"
+        style={{
+          display: 'flex', alignItems: 'center',
+          background: 'none', border: 'none',
+          color: vimMode ? '#528bff' : 'var(--hb-text-muted)',
+          cursor: 'pointer', padding: '0 4px',
+          fontSize: 11, fontFamily: 'inherit',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = vimMode ? '#528bff' : 'var(--hb-text-muted)' }}
+      >
+        {vimMode ? 'VIM' : 'vim'}
       </button>
       <span>{zoom}%</span>
     </div>

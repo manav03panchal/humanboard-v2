@@ -32,6 +32,13 @@ export function useKeyboardShortcuts() {
         return
       }
 
+      // Cmd+E — toggle IDE mode
+      if (meta && e.key === 'e') {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('humanboard:toggle-ide-mode'))
+        return
+      }
+
       // Cmd+P — toggle quick open
       if (meta && e.key === 'p') {
         e.preventDefault()
@@ -88,7 +95,7 @@ export function useKeyboardShortcuts() {
       }
     }
 
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    window.addEventListener('keydown', handler, true) // capture phase — fires before tldraw
+    return () => window.removeEventListener('keydown', handler, true)
   }, [toggleSidebar])
 }

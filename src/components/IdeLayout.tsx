@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { EditorView } from '@codemirror/view'
+import { vim } from '@replit/codemirror-vim'
+import { useEditorStore } from '../stores/editorStore'
 import CodeMirror from '@uiw/react-codemirror'
 import ReactMarkdown from 'react-markdown'
 import remarkMath from 'remark-math'
@@ -939,6 +942,7 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
   const file = useFileStore((s) => s.files.get(filePath))
   const updateContent = useFileStore((s) => s.updateContent)
   const saveFile = useFileStore((s) => s.saveFile)
+  const vimMode = useEditorStore((s) => s.vimMode)
   const zedTheme = useThemeStore((s) => s.zedTheme)
   const getEditorBackground = useThemeStore((s) => s.getEditorBackground)
   const getEditorForeground = useThemeStore((s) => s.getEditorForeground)
@@ -958,8 +962,8 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
     [zedTheme, getEditorBackground, getEditorForeground, getGutterBackground, getLineNumberColor, getActiveLineBackground]
   )
   const extensions = useMemo(
-    () => [...cmTheme, ...(langExt ? [langExt] : [])],
-    [cmTheme, langExt]
+    () => [EditorView.lineWrapping, ...(vimMode ? [vim()] : []), ...cmTheme, ...(langExt ? [langExt] : [])],
+    [cmTheme, langExt, vimMode]
   )
 
   const handleChange = useCallback(

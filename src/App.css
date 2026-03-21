@@ -101,16 +101,17 @@ body::-webkit-scrollbar {
   display: none !important;
 }
 
-/* Subtle selection outline */
+/* Selection — no outline, just resize handles */
 .tl-selection__fg__outline {
-  stroke: rgba(255, 255, 255, 0.2) !important;
-  stroke-width: 1 !important;
+  stroke: none !important;
 }
 
-/* Resize handles — always visible when selected, larger hit area */
+/* Resize handles — rounded, subtle */
 .tl-selection__fg__corner {
   fill: rgba(255, 255, 255, 0.5) !important;
   stroke: rgba(255, 255, 255, 0.3) !important;
+  rx: 50% !important;
+  ry: 50% !important;
 }
 
 /* Make resize hit area larger so it's easy to grab */

@@ -62,8 +62,8 @@ export function SidebarVaultDropdown() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
-          padding: '6px 10px',
+          gap: 5,
+          padding: '4px 10px',
           background: 'none',
           border: 'none',
           cursor: 'pointer',

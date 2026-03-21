@@ -45,6 +45,9 @@ import { useFileStore } from '../stores/fileStore'
 import { getLanguageExtension } from '../lib/language'
 import { NodeTitleBar } from '../components/NodeTitleBar'
 import { buildCodeMirrorTheme, useThemeStore } from '../lib/theme'
+import { EditorView } from '@codemirror/view'
+import { vim } from '@replit/codemirror-vim'
+import { useEditorStore } from '../stores/editorStore'
 import { useCallback, useRef, useEffect, useMemo, useState } from 'react'
 import { Eye, Code } from 'lucide-react'
 
@@ -104,6 +107,7 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
   const file = useFileStore((s) => s.files.get(shape.props.filePath))
   const updateContent = useFileStore((s) => s.updateContent)
   const vaultPath = useVaultStore((s) => s.vaultPath)
+  const vimMode = useEditorStore((s) => s.vimMode)
   const zedTheme = useThemeStore((s) => s.zedTheme)
   const getEditorBackground = useThemeStore((s) => s.getEditorBackground)
   const getEditorForeground = useThemeStore((s) => s.getEditorForeground)
@@ -125,8 +129,8 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
     [zedTheme, getEditorBackground, getEditorForeground, getGutterBackground, getLineNumberColor, getActiveLineBackground]
   )
   const extensions = useMemo(
-    () => [...cmTheme, ...(langExt ? [langExt] : [])],
-    [cmTheme, langExt]
+    () => [EditorView.lineWrapping, ...(vimMode ? [vim()] : []), ...cmTheme, ...(langExt ? [langExt] : [])],
+    [cmTheme, langExt, vimMode]
   )
 
   // Split content into text chunks and image references

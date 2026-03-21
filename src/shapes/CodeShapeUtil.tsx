@@ -15,6 +15,9 @@ import { useVaultStore } from '../stores/vaultStore'
 import { getLspClient, getServerLanguage, getLanguageId } from '../lib/lspManager'
 import { lintGutter } from '@codemirror/lint'
 import { NodeTitleBar } from '../components/NodeTitleBar'
+import { EditorView } from '@codemirror/view'
+import { vim } from '@replit/codemirror-vim'
+import { useEditorStore } from '../stores/editorStore'
 import { useCallback, useRef, useEffect, useMemo, useState } from 'react'
 import type { Extension } from '@codemirror/state'
 
@@ -85,6 +88,7 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
   const file = useFileStore((s) => s.files.get(shape.props.filePath))
   const updateContent = useFileStore((s) => s.updateContent)
   const vaultPath = useVaultStore((s) => s.vaultPath)
+  const vimMode = useEditorStore((s) => s.vimMode)
   const zedTheme = useThemeStore((s) => s.zedTheme)
   const getEditorBackground = useThemeStore((s) => s.getEditorBackground)
   const getEditorForeground = useThemeStore((s) => s.getEditorForeground)
@@ -138,8 +142,8 @@ function CodeShapeComponent({ shape }: { shape: CodeShape }) {
   )
 
   const extensions = useMemo(
-    () => [...cmTheme, ...(langExt ? [langExt] : []), ...lspExt],
-    [cmTheme, langExt, lspExt]
+    () => [EditorView.lineWrapping, ...(vimMode ? [vim()] : []), ...cmTheme, ...(langExt ? [langExt] : []), ...lspExt],
+    [cmTheme, langExt, lspExt, vimMode]
   )
 
   const handleChange = useCallback(

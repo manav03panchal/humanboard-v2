@@ -97,7 +97,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
       onDrop={handleDrop}
     >
       <div style={{ height: titlebarSpacerHeight }} /> {/* titlebar spacer — clears traffic lights on macOS, custom titlebar on Win/Linux */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '4px 6px 4px 4px', borderBottom: '1px solid var(--hb-border)', gap: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '3px 6px', borderBottom: '1px solid var(--hb-border)', gap: 2 }}>
         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <SidebarVaultDropdown />
         </div>
@@ -108,7 +108,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
             border: 'none',
             color: 'var(--hb-text-muted)',
             cursor: 'pointer',
-            padding: 6,
+            padding: 4,
             display: 'flex',
             alignItems: 'center',
             flexShrink: 0,
@@ -121,17 +121,10 @@ export function Sidebar({ onFileClick }: SidebarProps) {
           <PanelLeftClose size={13} strokeWidth={1.5} />
         </button>
       </div>
-      <div style={{ padding: '6px 8px' }}>
-        <SidebarSearch value={searchQuery} onChange={setSearchQuery} />
-      </div>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          padding: '0 12px 4px',
-        }}
-      >
+      <div style={{ padding: '5px 8px', display: 'flex', gap: 4, alignItems: 'center' }}>
+        <div style={{ flex: 1 }}>
+          <SidebarSearch value={searchQuery} onChange={setSearchQuery} />
+        </div>
         <button
           onClick={() => setSidebarSort(sidebarSort === 'date' ? 'alpha' : 'date')}
           style={{
@@ -139,14 +132,16 @@ export function Sidebar({ onFileClick }: SidebarProps) {
             border: 'none',
             color: 'var(--hb-text-muted)',
             cursor: 'pointer',
-            fontSize: 11,
+            fontSize: 10,
             display: 'flex',
             alignItems: 'center',
-            gap: 4,
+            gap: 2,
+            flexShrink: 0,
+            padding: '2px 4px',
           }}
         >
-          <ArrowUpDown size={12} />
-          {sidebarSort === 'date' ? 'Created' : 'A-Z'}
+          <ArrowUpDown size={10} />
+          {sidebarSort === 'date' ? '↕' : 'A-Z'}
         </button>
       </div>
       <SidebarFileList searchQuery={searchQuery} onFileClick={onFileClick} onContextMenu={setContextMenu} />

@@ -13,13 +13,13 @@ export const SidebarSearch = memo(function SidebarSearch({ value, onChange }: Si
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        padding: '5px 10px',
+        padding: '4px 10px',
         backgroundColor: 'var(--hb-surface)',
         border: '1px solid var(--hb-border)',
-        borderRadius: 6,
+        borderRadius: 5,
       }}
     >
-      <Search size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
+      <Search size={13} strokeWidth={1.5} color="var(--hb-text-muted)" />
       <input
         data-sidebar-search
         value={value}

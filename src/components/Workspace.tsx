@@ -53,17 +53,6 @@ export function Workspace() {
     return () => window.removeEventListener('humanboard:toggle-ide-mode', handler)
   }, [])
 
-  // Ctrl+I / Cmd+I to toggle IDE mode
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
-        e.preventDefault()
-        setIdeMode((v) => !v)
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
 
   // On vault change: load theme, clear all state, reset to canvas
   useEffect(() => {

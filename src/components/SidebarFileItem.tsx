@@ -62,16 +62,16 @@ export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
-        padding: '4px 12px',
+        gap: 6,
+        padding: '2px 10px',
         backgroundColor: 'transparent',
         border: 'none',
         color: 'var(--hb-fg)',
-        fontSize: 13,
+        fontSize: 14,
         cursor: isDir ? 'pointer' : 'grab',
         width: '100%',
         textAlign: 'left',
-        borderRadius: 4,
+        borderRadius: 3,
       }}
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
