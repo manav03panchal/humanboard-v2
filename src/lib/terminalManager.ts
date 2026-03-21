@@ -163,12 +163,14 @@ export function mountTerminal(id: number, parent: HTMLElement) {
     parent.appendChild(managed.container)
   }
 
-  // Refit after move
+  // Refit after move — double rAF to ensure CSS layout is settled
   requestAnimationFrame(() => {
-    try {
-      managed.fitAddon.fit()
-      managed.pty.resize(managed.term.cols, managed.term.rows)
-    } catch {}
+    requestAnimationFrame(() => {
+      try {
+        managed.fitAddon.fit()
+        managed.pty.resize(managed.term.cols, managed.term.rows)
+      } catch {}
+    })
   })
 }
 
@@ -200,6 +202,15 @@ export function updateTerminalTheme() {
     managed.container.querySelectorAll('.xterm, .xterm-viewport').forEach((el) => {
       (el as HTMLElement).style.backgroundColor = bg
     })
+  }
+}
+
+export function refitAll() {
+  for (const [, managed] of terminals) {
+    try {
+      managed.fitAddon.fit()
+      managed.pty.resize(managed.term.cols, managed.term.rows)
+    } catch {}
   }
 }
 

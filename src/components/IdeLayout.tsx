@@ -9,7 +9,7 @@ import rehypeKatex from 'rehype-katex'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import { Terminal as TerminalIcon, Plus, X, Eye, Code } from 'lucide-react'
-import { createTerminal, getTerminal, mountTerminal, destroyTerminal, updateTerminalTheme } from '../lib/terminalManager'
+import { createTerminal, getTerminal, mountTerminal, destroyTerminal, updateTerminalTheme, refitAll } from '../lib/terminalManager'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { IMAGE_EXTENSIONS as IMAGE_EXTS, MARKDOWN_EXTENSIONS as MD_EXTS, getExt } from '../lib/fileTypes'
 import { useFileStore } from '../stores/fileStore'
@@ -911,6 +911,7 @@ function TerminalPanel({ onClose }: { onClose: () => void }) {
     const onUp = () => {
       document.removeEventListener('pointermove', onMove)
       document.removeEventListener('pointerup', onUp)
+      requestAnimationFrame(() => refitAll())
     }
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
