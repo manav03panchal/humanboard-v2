@@ -48,7 +48,7 @@ export function SidebarFileList({ searchQuery, onFileClick, onContextMenu }: Sid
     <div style={{ overflow: 'auto', flex: 1 }}>
       {Array.from(grouped.entries()).map(([date, items]) => (
         <div key={date}>
-          <div style={{ padding: '8px 12px 4px', fontSize: 11, color: '#555', fontWeight: 600 }}>
+          <div style={{ padding: '8px 12px 4px', fontSize: 11, color: 'var(--hb-text-muted)', fontWeight: 600 }}>
             {date}
           </div>
           {items.map((f) => (

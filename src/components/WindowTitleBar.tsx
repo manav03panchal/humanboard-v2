@@ -17,8 +17,8 @@ export function WindowTitleBar() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        backgroundColor: '#000',
-        borderBottom: '1px solid #1a1a1a',
+        backgroundColor: 'var(--hb-bg)',
+        borderBottom: '1px solid var(--hb-border)',
         position: 'fixed',
         top: 0,
         left: 0,
@@ -30,7 +30,7 @@ export function WindowTitleBar() {
       <div style={{ display: 'flex' }}>
         <button
           onClick={() => appWindow.minimize()}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#333')}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           style={windowBtnStyle}
           title="Minimize"
@@ -39,7 +39,7 @@ export function WindowTitleBar() {
         </button>
         <button
           onClick={() => appWindow.toggleMaximize()}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#333')}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           style={windowBtnStyle}
           title="Maximize"
@@ -63,7 +63,7 @@ export function WindowTitleBar() {
 const windowBtnStyle: React.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: '#999',
+  color: 'var(--hb-text-muted)',
   cursor: 'pointer',
   padding: '8px 14px',
   display: 'flex',

@@ -26,16 +26,69 @@ body::-webkit-scrollbar {
 
 /* tldraw overrides — kill ALL blue, OLED black */
 .tl-theme__dark {
-  --color-background: #000000 !important;
-  --tl-color-background: #000000 !important;
+  --color-background: var(--hb-bg) !important;
+  --tl-color-background: var(--hb-bg) !important;
   --tl-color-selection-stroke: rgba(255, 255, 255, 0.25) !important;
   --tl-color-selection-fill: rgba(255, 255, 255, 0.03) !important;
   --tl-color-selected: rgba(255, 255, 255, 0.4) !important;
   --tl-color-primary: rgba(255, 255, 255, 0.4) !important;
+  --color-panel: var(--hb-surface) !important;
+  --color-muted-2: var(--hb-border) !important;
+  --color-low: var(--hb-hover) !important;
+  --color-text-0: var(--hb-fg) !important;
+  --color-text-1: var(--hb-text-muted) !important;
+  --color-text-3: var(--hb-text-muted) !important;
+}
+
+/* Toolbar + style panel — themed */
+.tlui-toolbar,
+.tlui-style-panel {
+  background: var(--hb-surface) !important;
+  border-color: var(--hb-border) !important;
+}
+
+.tlui-toolbar__inner {
+  background: var(--hb-surface) !important;
+}
+
+.tlui-button:hover {
+  background: var(--hb-hover) !important;
+}
+
+.tlui-button[data-state="selected"],
+.tlui-button[aria-checked="true"] {
+  background: var(--hb-hover) !important;
+  color: var(--hb-fg) !important;
+}
+
+/* Quick actions bar */
+.tlui-quick-actions {
+  background: var(--hb-surface) !important;
+  border-color: var(--hb-border) !important;
+}
+
+/* Dropdown menus */
+.tlui-popover__content,
+.tlui-menu,
+.tlui-dropdown-menu__content {
+  background: var(--hb-surface) !important;
+  border-color: var(--hb-border) !important;
+}
+
+.tlui-menu__item:hover,
+.tlui-dropdown-menu__item:hover {
+  background: var(--hb-hover) !important;
+}
+
+/* Action bar / zoom menu */
+.tlui-actions-menu,
+.tlui-zoom-menu {
+  background: var(--hb-surface) !important;
+  border-color: var(--hb-border) !important;
 }
 
 .tl-background {
-  background-color: #000000 !important;
+  background-color: var(--hb-bg) !important;
 }
 
 /* Hide tldraw watermark */
@@ -136,9 +189,9 @@ body::-webkit-scrollbar {
   text-underline-offset: 3px !important;
 }
 .cm-tooltip-lint {
-  background: #1a1a1a !important;
-  border: 1px solid #333 !important;
-  color: #ccc !important;
+  background: var(--hb-surface) !important;
+  border: 1px solid var(--hb-border) !important;
+  color: var(--hb-editor-fg) !important;
   border-radius: 6px !important;
   padding: 8px 12px !important;
   font-size: 12px !important;
@@ -165,9 +218,9 @@ body::-webkit-scrollbar {
   border-bottom-color: #e06c75 !important;
 }
 .cm-tooltip-hover {
-  background: #1a1a1a !important;
-  border: 1px solid #333 !important;
-  color: #ccc !important;
+  background: var(--hb-surface) !important;
+  border: 1px solid var(--hb-border) !important;
+  color: var(--hb-editor-fg) !important;
   border-radius: 6px !important;
   padding: 8px 12px !important;
   font-size: 13px !important;
@@ -179,8 +232,8 @@ body::-webkit-scrollbar {
   padding-right: 4px !important;
 }
 .cm-tooltip-autocomplete {
-  background: #1a1a1a !important;
-  border: 1px solid #333 !important;
+  background: var(--hb-surface) !important;
+  border: 1px solid var(--hb-border) !important;
   border-radius: 6px !important;
 }
 .cm-tooltip-autocomplete > ul > li {
@@ -188,8 +241,8 @@ body::-webkit-scrollbar {
   padding: 2px 8px !important;
 }
 .cm-tooltip-autocomplete > ul > li[aria-selected] {
-  background: #333 !important;
-  color: #fff !important;
+  background: var(--hb-hover) !important;
+  color: var(--hb-fg) !important;
 }
 
 /* GPU compositing for shape containers — no contain:paint (clips CM tooltips) */
@@ -268,10 +321,10 @@ body::-webkit-scrollbar {
   margin: 0.5em 0;
 }
 .markdown-body blockquote {
-  border-left: 3px solid #444;
+  border-left: 3px solid var(--hb-border);
   padding-left: 12px;
   margin: 0.5em 0;
-  color: #999;
+  color: var(--hb-text-muted);
 }
 .markdown-body a {
   color: #528bff;
@@ -285,7 +338,7 @@ body::-webkit-scrollbar {
 }
 .markdown-body hr {
   border: none;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--hb-border);
   margin: 1em 0;
 }
 .markdown-body table {
@@ -294,7 +347,7 @@ body::-webkit-scrollbar {
   margin: 0.5em 0;
 }
 .markdown-body th, .markdown-body td {
-  border: 1px solid #333;
+  border: 1px solid var(--hb-border);
   padding: 6px 12px;
   text-align: left;
 }

@@ -66,17 +66,17 @@ export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir
         padding: '4px 12px',
         backgroundColor: 'transparent',
         border: 'none',
-        color: '#ccc',
+        color: 'var(--hb-fg)',
         fontSize: 13,
         cursor: isDir ? 'pointer' : 'grab',
         width: '100%',
         textAlign: 'left',
         borderRadius: 4,
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#111')}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
     >
-      <Icon size={14} strokeWidth={1.5} color="#666" />
+      <Icon size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {name}
       </span>
@@ -90,7 +90,7 @@ export const SidebarFileItem = memo(function SidebarFileItem({ name, path, isDir
           )}
         </span>
       )}
-      <span style={{ fontSize: 11, color: '#555', flexShrink: 0 }}>{dateStr}</span>
+      <span style={{ fontSize: 11, color: 'var(--hb-text-muted)', flexShrink: 0 }}>{dateStr}</span>
     </button>
   )
 })

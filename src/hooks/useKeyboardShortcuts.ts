@@ -7,8 +7,30 @@ export function useKeyboardShortcuts() {
   const toggleSidebar = useVaultStore((s) => s.toggleSidebar)
 
   useEffect(() => {
+    let chordK = false
+    let chordTimeout: ReturnType<typeof setTimeout> | null = null
+
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey
+
+      // Chord: Ctrl+K, T — open theme picker
+      if (chordK && e.key === 't') {
+        e.preventDefault()
+        chordK = false
+        if (chordTimeout) clearTimeout(chordTimeout)
+        window.dispatchEvent(new CustomEvent('humanboard:toggle-theme-picker'))
+        return
+      }
+      if (chordK) {
+        chordK = false
+        if (chordTimeout) clearTimeout(chordTimeout)
+      }
+      if (meta && e.key === 'k') {
+        e.preventDefault()
+        chordK = true
+        chordTimeout = setTimeout(() => { chordK = false }, 1000)
+        return
+      }
 
       // Cmd+P — toggle quick open
       if (meta && e.key === 'p') {

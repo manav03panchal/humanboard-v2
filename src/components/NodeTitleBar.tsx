@@ -52,8 +52,8 @@ export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon, extraAct
         alignItems: 'center',
         gap: 8,
         padding: '6px 12px',
-        backgroundColor: '#0a0a0a',
-        borderBottom: '1px solid #1a1a1a',
+        backgroundColor: 'var(--hb-surface)',
+        borderBottom: '1px solid var(--hb-border)',
         cursor: 'grab',
         userSelect: 'none',
         minHeight: 32,
@@ -64,7 +64,7 @@ export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon, extraAct
         style={{
           flex: 1,
           fontSize: 12,
-          color: '#999',
+          color: 'var(--hb-text-muted)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -78,7 +78,7 @@ export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon, extraAct
             width: 6,
             height: 6,
             borderRadius: '50%',
-            backgroundColor: '#fff',
+            backgroundColor: 'var(--hb-fg)',
             flexShrink: 0,
           }}
         />
@@ -113,7 +113,7 @@ export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon, extraAct
 const iconButtonStyle: React.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: '#666',
+  color: 'var(--hb-text-muted)',
   cursor: 'pointer',
   padding: 4,
   display: 'flex',

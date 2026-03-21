@@ -137,8 +137,8 @@ export function QuickOpen({ open, onClose }: { open: boolean; onClose: () => voi
         style={{
           width: 500,
           maxHeight: 400,
-          backgroundColor: '#0a0a0a',
-          border: '1px solid #1a1a1a',
+          backgroundColor: 'var(--hb-surface)',
+          border: '1px solid var(--hb-border)',
           borderRadius: 8,
           display: 'flex',
           flexDirection: 'column',
@@ -151,11 +151,11 @@ export function QuickOpen({ open, onClose }: { open: boolean; onClose: () => voi
             display: 'flex',
             alignItems: 'center',
             padding: '10px 12px',
-            borderBottom: '1px solid #1a1a1a',
+            borderBottom: '1px solid var(--hb-border)',
             gap: 8,
           }}
         >
-          <Search size={16} color="#666" />
+          <Search size={16} color="var(--hb-text-muted)" />
           <input
             ref={inputRef}
             value={query}
@@ -170,7 +170,7 @@ export function QuickOpen({ open, onClose }: { open: boolean; onClose: () => voi
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              color: '#e0e0e0',
+              color: 'var(--hb-fg)',
               fontSize: 14,
               fontFamily: '"JetBrains Mono", monospace',
             }}
@@ -180,7 +180,7 @@ export function QuickOpen({ open, onClose }: { open: boolean; onClose: () => voi
         {/* Results */}
         <div ref={listRef} style={{ overflowY: 'auto', flex: 1 }}>
           {results.length === 0 && query && (
-            <div style={{ padding: '12px 16px', color: '#666', fontSize: 13 }}>
+            <div style={{ padding: '12px 16px', color: 'var(--hb-text-muted)', fontSize: 13 }}>
               No matching files
             </div>
           )}
@@ -199,15 +199,15 @@ export function QuickOpen({ open, onClose }: { open: boolean; onClose: () => voi
                   gap: 8,
                   padding: '6px 12px',
                   cursor: 'pointer',
-                  backgroundColor: isSelected ? '#1a1a1a' : 'transparent',
+                  backgroundColor: isSelected ? 'var(--hb-border)' : 'transparent',
                 }}
               >
-                <Icon size={14} color="#666" />
+                <Icon size={14} color="var(--hb-text-muted)" />
                 <span
                   style={{
                     fontSize: 13,
                     fontFamily: '"JetBrains Mono", monospace',
-                    color: '#ccc',
+                    color: 'var(--hb-fg)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -217,7 +217,7 @@ export function QuickOpen({ open, onClose }: { open: boolean; onClose: () => voi
                     ? item.path.split('').map((ch, ci) => (
                         <span
                           key={ci}
-                          style={indices.has(ci) ? { color: '#fff', fontWeight: 600 } : undefined}
+                          style={indices.has(ci) ? { color: 'var(--hb-fg)', fontWeight: 600 } : undefined}
                         >
                           {ch}
                         </span>

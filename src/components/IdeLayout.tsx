@@ -11,6 +11,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { spawn } from 'tauri-pty'
 import { convertFileSrc } from '@tauri-apps/api/core'
+import { IMAGE_EXTENSIONS as IMAGE_EXTS, MARKDOWN_EXTENSIONS as MD_EXTS, getExt } from '../lib/fileTypes'
 import { useFileStore } from '../stores/fileStore'
 import { useVaultStore } from '../stores/vaultStore'
 import { getLanguageExtension } from '../lib/language'
@@ -192,14 +193,33 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
     })
   }, [])
 
-  // Sync new files into the first leaf pane
+  // Sync open files with pane tree — add new files, remove closed ones
   useEffect(() => {
     if (openFiles.length === 0) { onClose(); return }
+    const openSet = new Set(openFiles)
     setRootPane((prev) => {
       let updated = prev
+
+      // Remove tabs that are no longer open in the file store
+      const removeStale = (node: PaneNode): PaneNode | null => {
+        if (node.type === 'leaf') {
+          const tabs = node.tabs.filter((t) => openSet.has(t))
+          if (tabs.length === 0) return null
+          const activeTab = tabs.includes(node.activeTab) ? node.activeTab : tabs[0]
+          return { ...node, tabs, activeTab }
+        }
+        const children = node.children.map(removeStale).filter(Boolean) as PaneNode[]
+        if (children.length === 0) return null
+        if (children.length === 1) return children[0]
+        return { ...node, children, sizes: children.map(() => 100 / children.length) }
+      }
+      const cleaned = removeStale(updated)
+      if (!cleaned) return createLeaf(openFiles, openFiles[0])
+      updated = cleaned
+
+      // Add new files not yet in any pane
       for (const file of openFiles) {
         if (!findLeafWithTab(updated, file)) {
-          // Add to the first leaf we find
           const addToFirst = (node: PaneNode): PaneNode => {
             if (node.type === 'leaf') {
               if (node.tabs.includes(file)) return node
@@ -347,7 +367,7 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
         flexDirection: 'column',
         width: '100%',
         height: '100%',
-        backgroundColor: '#000',
+        backgroundColor: 'var(--hb-bg)',
       }}
     >
       {/* Editor panes */}
@@ -370,7 +390,7 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
           <div
             onPointerDown={handleTerminalResize}
             style={{
-              height: 1, backgroundColor: '#1a1a1a', cursor: 'row-resize',
+              height: 1, backgroundColor: 'var(--hb-border)', cursor: 'row-resize',
               flexShrink: 0, position: 'relative', zIndex: 10,
             }}
           >
@@ -379,19 +399,19 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
           <div style={{ height: terminalHeight, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
             <div style={{
               display: 'flex', alignItems: 'center', height: 28,
-              backgroundColor: '#0a0a0a', borderBottom: '1px solid #1a1a1a',
+              backgroundColor: 'var(--hb-surface)', borderBottom: '1px solid var(--hb-border)',
               padding: '0 8px', flexShrink: 0, gap: 8,
             }}>
-              <TerminalIcon size={12} color="#555" />
-              <span style={{ fontSize: 11, color: '#888', fontFamily: '"JetBrains Mono", monospace' }}>Terminal</span>
+              <TerminalIcon size={12} color="var(--hb-text-muted)" />
+              <span style={{ fontSize: 11, color: 'var(--hb-text-muted)', fontFamily: '"JetBrains Mono", monospace' }}>Terminal</span>
               <button
                 onClick={() => setTerminalOpen(false)}
                 style={{
                   marginLeft: 'auto', background: 'none', border: 'none',
-                  color: '#555', cursor: 'pointer', padding: 2, display: 'flex',
+                  color: 'var(--hb-text-muted)', cursor: 'pointer', padding: 2, display: 'flex',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = '#ccc' }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = '#555' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
               >
                 <X size={12} />
               </button>
@@ -496,7 +516,7 @@ function SplitPaneView({ split, ...handlers }: PaneHandlers & { split: SplitPane
               style={{
                 [isHorizontal ? 'width' : 'height']: 1,
                 [isHorizontal ? 'height' : 'width']: '100%',
-                backgroundColor: '#1a1a1a',
+                backgroundColor: 'var(--hb-border)',
                 cursor: isHorizontal ? 'col-resize' : 'row-resize',
                 flexShrink: 0,
                 position: 'relative',
@@ -600,8 +620,8 @@ function LeafPaneView({ pane, onCloseTab, onActivateTab, onReorderTabs, onDropOn
           display: 'flex',
           alignItems: 'center',
           height: 36,
-          backgroundColor: '#0a0a0a',
-          borderBottom: '1px solid #1a1a1a',
+          backgroundColor: 'var(--hb-surface)',
+          borderBottom: '1px solid var(--hb-border)',
           overflowX: 'auto',
           overflowY: 'hidden',
           scrollbarWidth: 'none',
@@ -716,9 +736,9 @@ function Tab({ filePath, isActive, isPreview, onTogglePreview, onClick, onClose,
         gap: 6,
         padding: '0 8px 0 14px',
         height: '100%',
-        borderRight: '1px solid #1a1a1a',
-        background: isActive ? '#111' : hovered ? '#0d0d0d' : 'transparent',
-        color: isActive ? '#ddd' : '#666',
+        borderRight: '1px solid var(--hb-border)',
+        background: isActive ? 'var(--hb-hover)' : hovered ? 'var(--hb-hover)' : 'transparent',
+        color: isActive ? 'var(--hb-fg)' : 'var(--hb-text-muted)',
         cursor: 'grab',
         fontSize: 12,
         fontFamily: '"JetBrains Mono", monospace',
@@ -737,7 +757,7 @@ function Tab({ filePath, isActive, isPreview, onTogglePreview, onClick, onClose,
           title={isPreview ? 'Edit' : 'Preview'}
           style={{
             display: 'flex', alignItems: 'center', background: 'none', border: 'none',
-            color: isPreview ? '#528bff' : '#555', cursor: 'pointer', padding: 1,
+            color: isPreview ? '#528bff' : 'var(--hb-text-muted)', cursor: 'pointer', padding: 1,
             flexShrink: 0,
           }}
         >
@@ -755,11 +775,11 @@ function Tab({ filePath, isActive, isPreview, onTogglePreview, onClick, onClose,
           onClick={(e) => { e.stopPropagation(); onClose() }}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'none', border: 'none', color: '#555', cursor: 'pointer',
+            background: 'none', border: 'none', color: 'var(--hb-text-muted)', cursor: 'pointer',
             padding: 2, borderRadius: 3, flexShrink: 0,
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#333'; e.currentTarget.style.color = '#ccc' }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#555' }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--hb-border)'; e.currentTarget.style.color = 'var(--hb-fg)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--hb-text-muted)' }}
         >
           <X size={12} />
         </button>
@@ -862,14 +882,7 @@ function IdeTerminal() {
   )
 }
 
-// ─── File type helpers ───
-
-const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'])
-const MD_EXTS = new Set(['md'])
-
-function getExt(filePath: string): string {
-  return filePath.split('.').pop()?.toLowerCase() ?? ''
-}
+// File type helpers imported from '../lib/fileTypes' at top of file
 
 // ─── Image viewer ───
 
@@ -882,7 +895,7 @@ function ImageViewer({ filePath }: { filePath: string }) {
   return (
     <div style={{
       height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      overflow: 'auto', backgroundColor: '#000',
+      overflow: 'auto', backgroundColor: 'var(--hb-bg)',
     }}>
       <img
         src={src}
@@ -908,7 +921,7 @@ function MdPreview({ filePath }: { filePath: string }) {
         inset: 0,
         overflowY: 'auto',
         padding: '24px 32px',
-        color: '#d4d4d4',
+        color: 'var(--hb-editor-fg)',
         fontSize: 14,
         lineHeight: 1.7,
       }}
@@ -967,7 +980,7 @@ function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath: strin
 
   if (!file) {
     return (
-      <div style={{ color: '#555', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+      <div style={{ color: 'var(--hb-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         Loading...
       </div>
     )

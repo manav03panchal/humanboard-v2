@@ -19,7 +19,7 @@ export function SettingsButton({ onClick }: { onClick: () => void }) {
       style={{
         background: 'none',
         border: 'none',
-        color: '#666',
+        color: 'var(--hb-text-muted)',
         cursor: 'pointer',
         padding: 4,
         display: 'flex',
@@ -78,8 +78,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     >
       <div
         style={{
-          background: '#111',
-          border: '1px solid #333',
+          background: 'var(--hb-hover)',
+          border: '1px solid var(--hb-border)',
           borderRadius: 8,
           padding: 20,
           width: 340,
@@ -94,7 +94,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             marginBottom: 16,
           }}
         >
-          <span style={{ color: '#ccc', fontSize: 14, fontWeight: 600 }}>
+          <span style={{ color: 'var(--hb-fg)', fontSize: 14, fontWeight: 600 }}>
             Agent Settings
           </span>
           <button
@@ -105,7 +105,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             style={{
               background: 'none',
               border: 'none',
-              color: '#666',
+              color: 'var(--hb-text-muted)',
               cursor: 'pointer',
               padding: 2,
               display: 'flex',
@@ -119,7 +119,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <div style={{ marginBottom: 16 }}>
           <label
             style={{
-              color: '#999',
+              color: 'var(--hb-text-muted)',
               fontSize: 11,
               display: 'block',
               marginBottom: 4,
@@ -141,10 +141,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 placeholder="sk-ant-..."
                 style={{
                   width: '100%',
-                  background: '#0a0a0a',
-                  border: '1px solid #333',
+                  background: 'var(--hb-surface)',
+                  border: '1px solid var(--hb-border)',
                   borderRadius: 4,
-                  color: '#ccc',
+                  color: 'var(--hb-fg)',
                   fontSize: 12,
                   padding: '6px 30px 6px 8px',
                   outline: 'none',
@@ -163,7 +163,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   transform: 'translateY(-50%)',
                   background: 'none',
                   border: 'none',
-                  color: '#666',
+                  color: 'var(--hb-text-muted)',
                   cursor: 'pointer',
                   padding: 2,
                   display: 'flex',
@@ -183,7 +183,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               }}
               style={{
                 background: saved ? '#1a3a1a' : '#1a1a2e',
-                border: '1px solid ' + (saved ? '#2a5a2a' : '#333'),
+                border: '1px solid ' + (saved ? '#2a5a2a' : 'var(--hb-border)'),
                 borderRadius: 4,
                 color: saved ? '#4a9' : '#88f',
                 cursor: 'pointer',
@@ -223,7 +223,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <div>
           <label
             style={{
-              color: '#999',
+              color: 'var(--hb-text-muted)',
               fontSize: 11,
               display: 'block',
               marginBottom: 4,
@@ -237,10 +237,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             onPointerDown={stopEvent}
             style={{
               width: '100%',
-              background: '#0a0a0a',
-              border: '1px solid #333',
+              background: 'var(--hb-surface)',
+              border: '1px solid var(--hb-border)',
               borderRadius: 4,
-              color: '#ccc',
+              color: 'var(--hb-fg)',
               fontSize: 12,
               padding: '6px 8px',
               outline: 'none',

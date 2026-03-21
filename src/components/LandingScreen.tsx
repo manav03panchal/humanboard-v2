@@ -43,8 +43,8 @@ export function LandingScreen() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#000',
-        color: '#fff',
+        backgroundColor: 'var(--hb-bg)',
+        color: 'var(--hb-fg)',
         gap: 32,
       }}
     >
@@ -72,14 +72,14 @@ export function LandingScreen() {
 
       {recentVaults.length > 0 && (
         <div style={{ width: 280 }}>
-          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>Recent</p>
+          <p style={{ fontSize: 12, color: 'var(--hb-text-muted)', marginBottom: 8 }}>Recent</p>
           {recentVaults.map((vault) => (
             <button
               key={vault}
               onClick={() => handleOpenRecent(vault)}
               style={recentButtonStyle}
             >
-              <Folder size={14} strokeWidth={1.5} color="#666" />
+              <Folder size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
               <span
                 style={{
                   overflow: 'hidden',
@@ -102,10 +102,10 @@ const actionButtonStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 10,
   padding: '10px 16px',
-  backgroundColor: '#0a0a0a',
-  border: '1px solid #1a1a1a',
+  backgroundColor: 'var(--hb-surface)',
+  border: '1px solid var(--hb-border)',
   borderRadius: 8,
-  color: '#fff',
+  color: 'var(--hb-fg)',
   fontSize: 14,
   cursor: 'pointer',
   width: '100%',
@@ -120,7 +120,7 @@ const recentButtonStyle: React.CSSProperties = {
   backgroundColor: 'transparent',
   border: 'none',
   borderRadius: 6,
-  color: '#999',
+  color: 'var(--hb-text-muted)',
   fontSize: 13,
   cursor: 'pointer',
   width: '100%',

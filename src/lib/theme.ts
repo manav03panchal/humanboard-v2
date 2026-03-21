@@ -7,19 +7,19 @@ import type { Extension } from '@codemirror/state'
 
 // --- Zed Theme Types ---
 
-interface ZedThemeFamily {
+export interface ZedThemeFamily {
   name: string
   author: string
   themes: ZedTheme[]
 }
 
-interface ZedTheme {
+export interface ZedTheme {
   name: string
   appearance: 'dark' | 'light'
   style: ZedStyle
 }
 
-interface ZedStyle {
+export interface ZedStyle {
   background?: string
   foreground?: string
   text?: string
@@ -49,8 +49,12 @@ interface ZedStyle {
 interface ThemeState {
   zedTheme: ZedTheme | null
   themeName: string
+  activeThemeId: string | null
   loading: boolean
   loadTheme: (vaultPath: string) => Promise<void>
+  setTheme: (vaultPath: string, themeId: string) => Promise<void>
+  previewThemeById: (themeId: string) => void
+  cancelPreview: () => void
   getEditorBackground: () => string
   getEditorForeground: () => string
   getGutterBackground: () => string
@@ -89,7 +93,41 @@ const DEFAULTS = {
 export const useThemeStore = create<ThemeState>((set, get) => ({
   zedTheme: null,
   themeName: 'Default (OLED Black)',
+  activeThemeId: 'oled-black',
   loading: false,
+
+  setTheme: async (vaultPath: string, themeId: string) => {
+    const { getThemeById } = await import('./themes')
+    const bundled = getThemeById(themeId)
+    if (!bundled) return
+    const theme = bundled.family.themes.find((t) => t.appearance === 'dark') ?? bundled.family.themes[0]
+    if (!theme) return
+    set({ zedTheme: theme, themeName: theme.name, activeThemeId: themeId })
+    applyThemeToDOM(theme)
+    // Persist to vault
+    try {
+      await invoke('write_file', {
+        vaultRoot: vaultPath,
+        filePath: '.humanboard/theme.json',
+        content: JSON.stringify(bundled.family, null, 2),
+      })
+    } catch {}
+  },
+
+  previewThemeById: (themeId: string) => {
+    import('./themes').then(({ getThemeById }) => {
+      const bundled = getThemeById(themeId)
+      if (!bundled) return
+      const theme = bundled.family.themes.find((t) => t.appearance === 'dark') ?? bundled.family.themes[0]
+      if (theme) applyThemeToDOM(theme)
+    })
+  },
+
+  cancelPreview: () => {
+    const { zedTheme } = get()
+    if (zedTheme) applyThemeToDOM(zedTheme)
+    else applyDefaultToDOM()
+  },
 
   loadTheme: async (vaultPath: string) => {
     set({ loading: true })
@@ -102,12 +140,15 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       // Pick the first dark theme, or first theme
       const theme = family.themes.find((t) => t.appearance === 'dark') ?? family.themes[0]
       if (theme) {
-        set({ zedTheme: theme, themeName: theme.name, loading: false })
+        // Try to match a bundled theme by family name
+        const { BUNDLED_THEMES } = await import('./themes')
+        const matched = BUNDLED_THEMES.find((b) => b.family.name === family.name)
+        set({ zedTheme: theme, themeName: theme.name, activeThemeId: matched?.id ?? null, loading: false })
         applyThemeToDOM(theme)
       }
     } catch {
       // No theme file or invalid — use defaults
-      set({ zedTheme: null, themeName: 'Default (OLED Black)', loading: false })
+      set({ zedTheme: null, themeName: 'Default (OLED Black)', activeThemeId: 'oled-black', loading: false })
       applyDefaultToDOM()
     }
   },

@@ -67,8 +67,8 @@ export function SidebarContextMenu({ menu, onClose }: SidebarContextMenuProps) {
     top: Math.min(menu.y, window.innerHeight - 220),
     left: Math.min(menu.x, window.innerWidth - 200),
     zIndex: 10000,
-    backgroundColor: '#1a1a1a',
-    border: '1px solid #333',
+    backgroundColor: 'var(--hb-border)',
+    border: '1px solid var(--hb-border)',
     borderRadius: 6,
     padding: 4,
     minWidth: 180,
@@ -134,7 +134,7 @@ export function SidebarContextMenu({ menu, onClose }: SidebarContextMenuProps) {
     padding: '6px 12px',
     backgroundColor: 'transparent',
     border: 'none',
-    color: '#ccc',
+    color: 'var(--hb-fg)',
     fontSize: 13,
     cursor: 'pointer',
     width: '100%',
@@ -147,7 +147,7 @@ export function SidebarContextMenu({ menu, onClose }: SidebarContextMenuProps) {
   if (showDeleteConfirm) {
     return (
       <div ref={menuRef} style={style}>
-        <div style={{ padding: '8px 12px', fontSize: 13, color: '#999' }}>
+        <div style={{ padding: '8px 12px', fontSize: 13, color: 'var(--hb-text-muted)' }}>
           Delete "{fileName}"?
         </div>
         <div style={{ display: 'flex', gap: 4, padding: '4px 8px 8px' }}>
@@ -160,7 +160,7 @@ export function SidebarContextMenu({ menu, onClose }: SidebarContextMenuProps) {
               borderRadius: 4,
               flex: 1,
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#333')}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#222')}
           >
             Cancel
@@ -189,7 +189,7 @@ export function SidebarContextMenu({ menu, onClose }: SidebarContextMenuProps) {
     const label = inputMode === 'new-file' ? 'New file name' : inputMode === 'new-folder' ? 'New folder name' : 'Rename to'
     return (
       <div ref={menuRef} style={style}>
-        <div style={{ padding: '4px 8px', fontSize: 12, color: '#666' }}>{label}</div>
+        <div style={{ padding: '4px 8px', fontSize: 12, color: 'var(--hb-text-muted)' }}>{label}</div>
         <div style={{ padding: '4px 8px 8px' }}>
           <input
             ref={inputRef}
@@ -198,17 +198,17 @@ export function SidebarContextMenu({ menu, onClose }: SidebarContextMenuProps) {
             onKeyDown={handleKeyDown}
             style={{
               width: '100%',
-              backgroundColor: '#111',
-              border: '1px solid #333',
+              backgroundColor: 'var(--hb-hover)',
+              border: '1px solid var(--hb-border)',
               borderRadius: 4,
               padding: '4px 8px',
-              color: '#fff',
+              color: 'var(--hb-fg)',
               fontSize: 13,
               outline: 'none',
               boxSizing: 'border-box',
             }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = '#555')}
-            onBlur={(e) => (e.currentTarget.style.borderColor = '#333')}
+            onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--hb-text-muted)')}
+            onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--hb-border)')}
           />
         </div>
       </div>
@@ -220,35 +220,35 @@ export function SidebarContextMenu({ menu, onClose }: SidebarContextMenuProps) {
       <button
         style={menuItemStyle}
         onClick={() => { setInputMode('new-file'); setInputValue('') }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#222')}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
-        <FilePlus size={14} strokeWidth={1.5} color="#888" />
+        <FilePlus size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
         New File
       </button>
       <button
         style={menuItemStyle}
         onClick={() => { setInputMode('new-folder'); setInputValue('') }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#222')}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
-        <FolderPlus size={14} strokeWidth={1.5} color="#888" />
+        <FolderPlus size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
         New Folder
       </button>
-      <div style={{ height: 1, backgroundColor: '#333', margin: '4px 0' }} />
+      <div style={{ height: 1, backgroundColor: 'var(--hb-border)', margin: '4px 0' }} />
       <button
         style={menuItemStyle}
         onClick={() => { setInputMode('rename'); setInputValue(fileName) }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#222')}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
-        <Pencil size={14} strokeWidth={1.5} color="#888" />
+        <Pencil size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
         Rename
       </button>
       <button
         style={{ ...menuItemStyle, color: '#ff6666' }}
         onClick={() => setShowDeleteConfirm(true)}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#222')}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
         <Trash2 size={14} strokeWidth={1.5} color="#ff6666" />

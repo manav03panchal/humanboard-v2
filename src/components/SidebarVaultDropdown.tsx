@@ -75,7 +75,7 @@ export function SidebarVaultDropdown() {
           style={{
             flex: 1,
             fontSize: 11,
-            color: '#777',
+            color: 'var(--hb-text-muted)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -86,7 +86,7 @@ export function SidebarVaultDropdown() {
         <ChevronDown
           size={12}
           strokeWidth={1.5}
-          color="#444"
+          color="var(--hb-text-muted)"
           style={{
             transform: isOpen ? 'rotate(180deg)' : 'none',
             transition: 'transform 0.15s ease',
@@ -102,8 +102,8 @@ export function SidebarVaultDropdown() {
             top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom : 0,
             left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().left : 0,
             width: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().width : 260,
-            backgroundColor: '#0a0a0a',
-            border: '1px solid #1a1a1a',
+            backgroundColor: 'var(--hb-surface)',
+            border: '1px solid var(--hb-border)',
             borderRadius: '0 0 8px 8px',
             zIndex: 9999,
             maxHeight: 300,
@@ -112,14 +112,14 @@ export function SidebarVaultDropdown() {
           }}
         >
           <button onClick={handleOpenFolder} style={menuItemStyle}>
-            <FolderOpen size={14} strokeWidth={1.5} color="#666" />
+            <FolderOpen size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
             <span>Open Folder...</span>
           </button>
 
           {otherVaults.length > 0 && (
             <>
-              <div style={{ height: 1, backgroundColor: '#1a1a1a', margin: '4px 0' }} />
-              <div style={{ padding: '4px 12px', fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ height: 1, backgroundColor: 'var(--hb-border)', margin: '4px 0' }} />
+              <div style={{ padding: '4px 12px', fontSize: 10, color: 'var(--hb-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Recent
               </div>
               {otherVaults.map((vault) => (
@@ -128,7 +128,7 @@ export function SidebarVaultDropdown() {
                   onClick={() => handleSwitchVault(vault)}
                   style={menuItemStyle}
                 >
-                  <Folder size={14} strokeWidth={1.5} color="#666" />
+                  <Folder size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {vault.replace(/^\/Users\/[^/]+/, '~')}
                   </span>
@@ -150,7 +150,7 @@ const menuItemStyle: React.CSSProperties = {
   padding: '6px 12px',
   background: 'none',
   border: 'none',
-  color: '#ccc',
+  color: 'var(--hb-fg)',
   fontSize: 12,
   cursor: 'pointer',
   width: '100%',

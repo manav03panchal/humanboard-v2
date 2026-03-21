@@ -51,10 +51,10 @@ export const ToastContainer = memo(function ToastContainer() {
           key={toast.id}
           style={{
             padding: '10px 16px',
-            backgroundColor: toast.type === 'error' ? '#1a0000' : '#0a0a0a',
-            border: `1px solid ${toast.type === 'error' ? '#330000' : '#1a1a1a'}`,
+            backgroundColor: toast.type === 'error' ? '#1a0000' : 'var(--hb-surface)',
+            border: `1px solid ${toast.type === 'error' ? '#330000' : 'var(--hb-border)'}`,
             borderRadius: 8,
-            color: '#fff',
+            color: 'var(--hb-fg)',
             fontSize: 13,
             display: 'flex',
             alignItems: 'center',
@@ -68,7 +68,7 @@ export const ToastContainer = memo(function ToastContainer() {
             style={{
               background: 'none',
               border: 'none',
-              color: '#666',
+              color: 'var(--hb-text-muted)',
               cursor: 'pointer',
               padding: 2,
               display: 'flex',

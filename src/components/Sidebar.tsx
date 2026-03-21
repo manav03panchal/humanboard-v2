@@ -82,8 +82,8 @@ export function Sidebar({ onFileClick }: SidebarProps) {
         width: sidebarOpen ? width : 0,
         minWidth: sidebarOpen ? width : 0,
         height: '100%',
-        backgroundColor: '#000',
-        borderRight: sidebarOpen ? `1px solid ${isDragOver ? 'rgba(82, 139, 255, 0.4)' : '#1a1a1a'}` : 'none',
+        backgroundColor: 'var(--hb-bg)',
+        borderRight: sidebarOpen ? `1px solid ${isDragOver ? 'rgba(82, 139, 255, 0.4)' : 'var(--hb-border)'}` : 'none',
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
@@ -97,7 +97,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
       onDrop={handleDrop}
     >
       <div style={{ height: titlebarSpacerHeight }} /> {/* titlebar spacer — clears traffic lights on macOS, custom titlebar on Win/Linux */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '4px 6px 4px 4px', borderBottom: '1px solid #1a1a1a', gap: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '4px 6px 4px 4px', borderBottom: '1px solid var(--hb-border)', gap: 2 }}>
         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <SidebarVaultDropdown />
         </div>
@@ -106,7 +106,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
           style={{
             background: 'none',
             border: 'none',
-            color: '#444',
+            color: 'var(--hb-text-muted)',
             cursor: 'pointer',
             padding: 6,
             display: 'flex',
@@ -115,8 +115,8 @@ export function Sidebar({ onFileClick }: SidebarProps) {
             borderRadius: 4,
           }}
           title="Close sidebar (Cmd+B)"
-          onMouseEnter={(e) => (e.currentTarget.style.color = '#999')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = '#444')}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--hb-text-muted)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--hb-text-muted)')}
         >
           <PanelLeftClose size={13} strokeWidth={1.5} />
         </button>
@@ -137,7 +137,7 @@ export function Sidebar({ onFileClick }: SidebarProps) {
           style={{
             background: 'none',
             border: 'none',
-            color: '#555',
+            color: 'var(--hb-text-muted)',
             cursor: 'pointer',
             fontSize: 11,
             display: 'flex',

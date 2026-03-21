@@ -10,11 +10,13 @@ import { useVaultStore } from '../stores/vaultStore'
 import { useToastStore } from './Toast'
 import { useThemeStore } from '../lib/theme'
 import { getLanguageName } from '../lib/language'
+import { isBinaryFile } from '../lib/fileTypes'
 import { useLinkStore } from '../stores/linkStore'
 import { disconnectAll as disconnectLsp } from '../lib/lspManager'
 import { useDiagnosticStore } from '../stores/diagnosticStore'
 import { usePlatform } from '../hooks/usePlatform'
 import { QuickOpen } from './QuickOpen'
+import { ThemePicker } from './ThemePicker'
 
 export function Workspace() {
   const vaultPath = useVaultStore((s) => s.vaultPath)!
@@ -25,6 +27,7 @@ export function Workspace() {
   const isMac = os === 'macos'
   const [quickOpenOpen, setQuickOpenOpen] = useState(false)
   const [ideMode, setIdeMode] = useState(false)
+  const [themePickerOpen, setThemePickerOpen] = useState(false)
   const openFiles = useStoreWithEqualityFn(
     useFileStore,
     useCallback((s) => Array.from(s.files.keys()), []),
@@ -35,6 +38,12 @@ export function Workspace() {
     const handler = () => setQuickOpenOpen((o) => !o)
     window.addEventListener('humanboard:toggle-quick-open', handler)
     return () => window.removeEventListener('humanboard:toggle-quick-open', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = () => setThemePickerOpen((o) => !o)
+    window.addEventListener('humanboard:toggle-theme-picker', handler)
+    return () => window.removeEventListener('humanboard:toggle-theme-picker', handler)
   }, [])
 
   // Expose IDE mode toggle for StatusBar
@@ -73,11 +82,8 @@ export function Workspace() {
   const handleFileClick = useCallback(
     async (filePath: string) => {
       try {
-        const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
-        const BINARY_EXTS = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a']
-        const isBinary = BINARY_EXTS.includes(ext)
         // Binary files (PDFs) skip the text file store — shapes load them directly
-        if (!isBinary) {
+        if (!isBinaryFile(filePath)) {
           await openFile(vaultPath, filePath)
         }
         window.dispatchEvent(
@@ -148,6 +154,7 @@ export function Workspace() {
         </div>
       </div>
       <QuickOpen open={quickOpenOpen} onClose={() => setQuickOpenOpen(false)} />
+      <ThemePicker open={themePickerOpen} onClose={() => setThemePickerOpen(false)} />
       <StatusBar ideMode={ideMode} />
     </div>
   )

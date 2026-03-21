@@ -138,18 +138,18 @@ function TreeItem({
           paddingLeft: 8 + depth * 16,
           backgroundColor: 'transparent',
           border: 'none',
-          color: '#ccc',
+          color: 'var(--hb-fg)',
           fontSize: 13,
           cursor: 'pointer',
           width: '100%',
           textAlign: 'left',
           borderRadius: 4,
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#111')}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
-        <Chevron size={12} strokeWidth={1.5} color="#555" />
-        <Icon size={14} strokeWidth={1.5} color="#666" />
+        <Chevron size={12} strokeWidth={1.5} color="var(--hb-text-muted)" />
+        <Icon size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {node.name}
         </span>
@@ -226,17 +226,17 @@ function TreeFileItem({
         paddingLeft: 8 + depth * 16 + 16,
         backgroundColor: 'transparent',
         border: 'none',
-        color: '#ccc',
+        color: 'var(--hb-fg)',
         fontSize: 13,
         cursor: 'grab',
         width: '100%',
         textAlign: 'left',
         borderRadius: 4,
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#111')}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hb-hover)')}
       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
     >
-      <Icon size={14} strokeWidth={1.5} color="#666" />
+      <Icon size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {name}
       </span>

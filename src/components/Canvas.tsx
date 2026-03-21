@@ -1,10 +1,19 @@
 import { useCallback, useRef, useEffect, useState } from 'react'
 import { Columns2, LayoutGrid, PanelLeft } from 'lucide-react'
-import { Tldraw, type Editor } from 'tldraw'
+import {
+  Tldraw,
+  DefaultToolbar,
+  DefaultToolbarContent,
+  DefaultStylePanel,
+  DefaultStylePanelContent,
+  type TLComponents,
+  type Editor,
+} from 'tldraw'
 import 'tldraw/tldraw.css'
 import { customShapeUtils } from '../shapes'
 import { saveCanvasState, loadCanvasState } from '../lib/canvasPersistence'
 import { useVaultStore } from '../stores/vaultStore'
+import { useThemeStore } from '../lib/theme'
 import { useFileStore } from '../stores/fileStore'
 import { useFileWatcher } from '../hooks/useFileWatcher'
 import { getLanguageName } from '../lib/language'
@@ -14,20 +23,28 @@ import { getCurrentWebview } from '@tauri-apps/api/webview'
 
 const TLDRAW_OPTIONS = { maxPages: 1, debouncedZoom: false } as const
 
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
-const PDF_EXTENSIONS = ['pdf']
-const MARKDOWN_EXTENSIONS = ['md']
-const AUDIO_EXTENSIONS = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a']
-const ALL_SHAPE_TYPES = ['code-shape', 'image-shape', 'markdown-shape', 'pdf-shape', 'audio-shape']
-
-function getShapeConfig(filePath: string, language: string) {
-  const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
-  if (PDF_EXTENSIONS.includes(ext)) return { type: 'pdf-shape' as const, w: 650, h: 800 }
-  if (IMAGE_EXTENSIONS.includes(ext)) return { type: 'image-shape' as const, w: 500, h: 400 }
-  if (MARKDOWN_EXTENSIONS.includes(ext)) return { type: 'markdown-shape' as const, w: 600, h: 500 }
-  if (AUDIO_EXTENSIONS.includes(ext)) return { type: 'audio-shape' as const, w: 400, h: 140 }
-  return { type: 'code-shape' as const, w: 600, h: 400, language }
+const tldrawComponents: TLComponents = {
+  Toolbar: (props) => (
+    <DefaultToolbar {...props}>
+      <DefaultToolbarContent />
+    </DefaultToolbar>
+  ),
+  StylePanel: (props) => (
+    <DefaultStylePanel {...props}>
+      <DefaultStylePanelContent />
+    </DefaultStylePanel>
+  ),
+  // Hide pieces we don't need
+  MainMenu: null,
+  PageMenu: null,
+  NavigationPanel: null,
+  HelpMenu: null,
+  DebugMenu: null,
+  DebugPanel: null,
+  SharePanel: null,
 }
+
+import { IMAGE_EXTENSIONS, PDF_EXTENSIONS, AUDIO_EXTENSIONS, MARKDOWN_EXTENSIONS, ALL_SHAPE_TYPES, isBinaryFile, getShapeConfig } from '../lib/fileTypes'
 
 // Find a position that doesn't overlap existing shapes
 function findNonOverlappingPosition(editor: Editor, baseX: number, baseY: number, w: number, h: number) {
@@ -61,6 +78,7 @@ export function StatusBar({ ideMode }: { ideMode?: boolean }) {
   const [lspStatuses, setLspStatuses] = useState<Map<string, string>>(new Map())
   const sidebarOpen = useVaultStore((s) => s.sidebarOpen)
   const toggleSidebar = useVaultStore((s) => s.toggleSidebar)
+  const themeName = useThemeStore((s) => s.themeName)
 
   useEffect(() => {
     const zoomHandler = (e: Event) => {
@@ -96,11 +114,11 @@ export function StatusBar({ ideMode }: { ideMode?: boolean }) {
         justifyContent: 'flex-end',
         gap: 12,
         padding: '0 12px',
-        backgroundColor: '#0a0a0a',
-        borderTop: '1px solid #1a1a1a',
+        backgroundColor: 'var(--hb-surface)',
+        borderTop: '1px solid var(--hb-border)',
         fontSize: 11,
         fontFamily: '"JetBrains Mono", monospace',
-        color: '#555',
+        color: 'var(--hb-text-muted)',
         userSelect: 'none',
       }}
     >
@@ -110,11 +128,11 @@ export function StatusBar({ ideMode }: { ideMode?: boolean }) {
         style={{
           display: 'flex', alignItems: 'center',
           background: 'none', border: 'none',
-          color: sidebarOpen ? '#555' : '#888',
+          color: 'var(--hb-text-muted)',
           cursor: 'pointer', padding: '0 4px', fontSize: 11, fontFamily: 'inherit',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = '#888' }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = sidebarOpen ? '#555' : '#888' }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
       >
         <PanelLeft size={13} />
       </button>
@@ -127,15 +145,15 @@ export function StatusBar({ ideMode }: { ideMode?: boolean }) {
           gap: 4,
           background: 'none',
           border: 'none',
-          color: ideMode ? '#528bff' : '#555',
+          color: ideMode ? '#528bff' : 'var(--hb-text-muted)',
           cursor: 'pointer',
           padding: '0 4px',
           fontSize: 11,
           fontFamily: 'inherit',
           marginRight: 'auto',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.color = '#888' }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = ideMode ? '#528bff' : '#555' }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = ideMode ? '#528bff' : 'var(--hb-text-muted)' }}
       >
         {ideMode ? <LayoutGrid size={12} /> : <Columns2 size={12} />}
         <span>{ideMode ? 'Canvas' : 'IDE'}</span>
@@ -150,17 +168,31 @@ export function StatusBar({ ideMode }: { ideMode?: boolean }) {
               backgroundColor:
                 status === 'ready' ? '#98c379' :
                 status === 'error' ? '#e06c75' :
-                status === 'connecting' ? '#555' :
+                status === 'connecting' ? 'var(--hb-text-muted)' :
                 '#e5c07b',
               display: 'inline-block',
               animation: status !== 'ready' && status !== 'error' ? 'pulse 1.5s infinite' : 'none',
             }}
           />
-          <span style={{ color: status === 'ready' ? '#555' : '#888' }}>
+          <span style={{ color: 'var(--hb-text-muted)' }}>
             {lang}{status !== 'ready' ? `: ${status}` : ''}
           </span>
         </span>
       ))}
+      <button
+        onClick={() => window.dispatchEvent(new CustomEvent('humanboard:toggle-theme-picker'))}
+        title="Change theme (Ctrl+K, T)"
+        style={{
+          display: 'flex', alignItems: 'center',
+          background: 'none', border: 'none',
+          color: 'var(--hb-text-muted)', cursor: 'pointer', padding: '0 4px',
+          fontSize: 11, fontFamily: 'inherit',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--hb-fg)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--hb-text-muted)' }}
+      >
+        {themeName}
+      </button>
       <span>{zoom}%</span>
     </div>
   )
@@ -325,7 +357,7 @@ export function Canvas() {
 
       // Check if shape already exists
       const existing = editor.getCurrentPageShapes().find(
-        (s) => ALL_SHAPE_TYPES.includes(s.type) && (s as any).props.filePath === filePath
+        (s) => (ALL_SHAPE_TYPES as readonly string[]).includes(s.type) && (s as any).props.filePath === filePath
       )
       if (existing) {
         editor.select(existing.id)
@@ -340,9 +372,7 @@ export function Canvas() {
       }
 
       // Load file content into FileStore if it's a text file
-      const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
-      const BINARY_EXTS = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a']
-      if (!BINARY_EXTS.includes(ext) && vaultPath) {
+      if (!isBinaryFile(filePath) && vaultPath) {
         try {
           await useFileStore.getState().openFile(vaultPath, filePath)
         } catch (err) {
@@ -377,7 +407,7 @@ export function Canvas() {
         setTimeout(() => {
           const shapes = editor.getCurrentPageShapes()
           const created = shapes.find(
-            (s) => ALL_SHAPE_TYPES.includes(s.type) && (s as any).props.filePath === filePath
+            (s) => (ALL_SHAPE_TYPES as readonly string[]).includes(s.type) && (s as any).props.filePath === filePath
           )
           if (created) {
             editor.select(created.id)
@@ -444,10 +474,10 @@ export function Canvas() {
           }
 
           const ext = relativePath.split('.').pop()?.toLowerCase() ?? ''
-          const isImage = IMAGE_EXTENSIONS.includes(ext)
-          const isPdf = PDF_EXTENSIONS.includes(ext)
-          const isMarkdown = MARKDOWN_EXTENSIONS.includes(ext)
-          const isAudio = AUDIO_EXTENSIONS.includes(ext)
+          const isImage = IMAGE_EXTENSIONS.has(ext)
+          const isPdf = PDF_EXTENSIONS.has(ext)
+          const isMarkdown = MARKDOWN_EXTENSIONS.has(ext)
+          const isAudio = AUDIO_EXTENSIONS.has(ext)
 
           // Check if already open
           const existing = editor.getCurrentPageShapes().find(
@@ -526,9 +556,7 @@ export function Canvas() {
     const language = getLanguageName(filePath)
 
     // Load file if needed
-    const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
-    const BINARY_EXTS = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a']
-    if (!BINARY_EXTS.includes(ext)) {
+    if (!isBinaryFile(filePath)) {
       try { await useFileStore.getState().openFile(vaultPath, filePath) }
       catch { return }
     }
@@ -572,9 +600,9 @@ export function Canvas() {
       )}
       <Tldraw
         shapeUtils={customShapeUtils}
-        hideUi
         onMount={handleMount}
         options={TLDRAW_OPTIONS}
+        components={tldrawComponents}
         inferDarkMode
       />
       {/* StatusBar moved to Workspace for visibility in IDE mode */}
