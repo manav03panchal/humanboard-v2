@@ -12,6 +12,7 @@ export function useKeyboardShortcuts() {
 
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey
+      const inEditor = !!(e.target as HTMLElement)?.closest?.('.cm-editor')
 
       // Chord: Ctrl+K, T — open theme picker
       if (chordK && e.key === 't') {
@@ -26,6 +27,7 @@ export function useKeyboardShortcuts() {
         if (chordTimeout) clearTimeout(chordTimeout)
       }
       if (meta && e.key === 'k') {
+        if (inEditor) return // let CM handle it
         e.preventDefault()
         chordK = true
         chordTimeout = setTimeout(() => { chordK = false }, 1000)
@@ -47,9 +49,9 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Cmd+W — prevent closing window, do nothing (or close focused shape later)
+      // Cmd+W — prevent closing window (IDE mode handles its own tab close)
       if (meta && e.key === 'w') {
-        e.preventDefault()
+        if (!inEditor) e.preventDefault()
         return
       }
 
@@ -60,12 +62,12 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Cmd+F — focus sidebar search
+      // Cmd+F — if in editor, let CodeMirror handle search; otherwise sidebar search
       if (meta && e.key === 'f') {
+        if (inEditor) return // let CM search handle it
         e.preventDefault()
         const { sidebarOpen } = useVaultStore.getState()
         if (!sidebarOpen) useVaultStore.getState().toggleSidebar()
-        // Focus the search input
         setTimeout(() => {
           const input = document.querySelector('[data-sidebar-search]') as HTMLInputElement
           if (input) input.focus()

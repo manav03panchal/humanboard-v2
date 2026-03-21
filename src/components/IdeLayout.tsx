@@ -205,7 +205,7 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
 
   // Sync open files with pane tree — add new files, remove closed ones
   useEffect(() => {
-    if (openFiles.length === 0) { onClose(); return }
+    if (openFiles.length === 0) { setTimeout(onClose, 0); return }
     const openSet = new Set(openFiles)
     setRootPane((prev) => {
       let updated = prev
