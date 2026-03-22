@@ -173,6 +173,8 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
 
   const [terminalOpen, setTerminalOpen] = useState(false)
   const [terminalHeight, setTerminalHeight] = useState(250)
+  const terminalHeightRef = useRef(terminalHeight)
+  terminalHeightRef.current = terminalHeight
 
   // Find the first leaf for keyboard shortcuts
   const findFirstLeaf = useCallback((node: PaneNode): LeafPane | null =>
@@ -253,7 +255,7 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
   const handleTerminalResize = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
     const startY = e.clientY
-    const startHeight = terminalHeight
+    const startHeight = terminalHeightRef.current
 
     const onMove = (e: PointerEvent) => {
       const delta = startY - e.clientY
@@ -265,7 +267,7 @@ export function IdeLayout({ openFiles, onClose }: IdeLayoutProps) {
     }
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
-  }, [terminalHeight])
+  }, [])
 
   // Global pointer drag handler — handles threshold, ghost, and drop resolution
   useEffect(() => {

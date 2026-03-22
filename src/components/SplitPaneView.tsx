@@ -1,6 +1,6 @@
 // ─── Split pane with resizable divider ───
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { SplitPane, PaneNode, PaneHandlers } from '../lib/paneModel'
 import { LeafPaneView } from './LeafPaneView'
 
@@ -14,11 +14,7 @@ function PaneRendererInternal({ node, ...handlers }: PaneHandlers & { node: Pane
 
 export function SplitPaneView({ split, ...handlers }: PaneHandlers & { split: SplitPane }) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [sizes, setSizes] = useState(split.sizes)
-  const sizesRef = useRef(sizes)
-  sizesRef.current = sizes
-
-  useEffect(() => { setSizes(split.sizes) }, [split.sizes])
+  const [draggingSizes, setDraggingSizes] = useState<number[] | null>(null)
 
   const isHorizontal = split.direction === 'horizontal'
 
@@ -29,26 +25,28 @@ export function SplitPaneView({ split, ...handlers }: PaneHandlers & { split: Sp
 
     const startPos = isHorizontal ? e.clientX : e.clientY
     const containerSize = isHorizontal ? container.offsetWidth : container.offsetHeight
-    const startSizes = [...sizesRef.current]
+    const startSizes = [...split.sizes]
 
     const onMove = (e: PointerEvent) => {
       const delta = ((isHorizontal ? e.clientX : e.clientY) - startPos) / containerSize * 100
       const newSizes = [...startSizes]
       newSizes[index] = Math.max(10, startSizes[index] + delta)
       newSizes[index + 1] = Math.max(10, startSizes[index + 1] - delta)
-      setSizes(newSizes)
-      sizesRef.current = newSizes
+      setDraggingSizes(newSizes)
     }
 
     const onUp = () => {
       document.removeEventListener('pointermove', onMove)
       document.removeEventListener('pointerup', onUp)
-      handlers.onResizePanes(split.id, sizesRef.current)
+      setDraggingSizes((current) => {
+        if (current) handlers.onResizePanes(split.id, current)
+        return null
+      })
     }
 
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
-  }, [isHorizontal, split.id, handlers])
+  }, [isHorizontal, split.id, split.sizes, handlers])
 
   return (
     <div
@@ -61,7 +59,9 @@ export function SplitPaneView({ split, ...handlers }: PaneHandlers & { split: Sp
         minHeight: 0,
       }}
     >
-      {split.children.map((child, i) => (
+      {split.children.map((child, i) => {
+        const sizes = draggingSizes ?? split.sizes
+        return (
         <div key={child.id} style={{ display: 'contents' }}>
           <div style={{
             [isHorizontal ? 'width' : 'height']: `calc(${sizes[i]}% - ${i < split.children.length - 1 ? 1 : 0}px)`,
@@ -95,7 +95,8 @@ export function SplitPaneView({ split, ...handlers }: PaneHandlers & { split: Sp
             </div>
           )}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

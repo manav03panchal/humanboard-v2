@@ -25,6 +25,10 @@ export function TerminalPanel({ onClose }: { onClose: () => void }) {
   const paneSlotRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const [dragInfo, setDragInfo] = useState<{ termId: number; paneId: number } | null>(null)
   const [dropTarget, setDropTarget] = useState<{ paneId: number; zone: 'left' | 'right' | 'center' } | null>(null)
+  const panesRef = useRef(panes)
+  panesRef.current = panes
+  const sizesRef = useRef(sizes)
+  sizesRef.current = sizes
 
   const addTab = useCallback((paneId?: number) => {
     const tid = ++termIdCounter
@@ -78,7 +82,7 @@ export function TerminalPanel({ onClose }: { onClose: () => void }) {
         if (Math.abs(e.clientX - drag.startX) < THRESHOLD && Math.abs(e.clientY - drag.startY) < THRESHOLD) return
         drag.dragging = true
         setDragInfo({ termId: drag.termId, paneId: drag.paneId })
-        const pane = panes.find((p) => p.id === drag.paneId)
+        const pane = panesRef.current.find((p) => p.id === drag.paneId)
         const tab = pane?.tabs.find((t) => t.id === drag.termId)
         drag.ghostEl = createDragGhost(tab?.label ?? 'terminal')
       }
@@ -160,7 +164,7 @@ export function TerminalPanel({ onClose }: { onClose: () => void }) {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
-  }, [panes])
+  }, [])
 
   // Divider resize
   const handleDividerDrag = useCallback((index: number, e: React.PointerEvent) => {
@@ -169,7 +173,7 @@ export function TerminalPanel({ onClose }: { onClose: () => void }) {
     if (!container) return
     const startX = e.clientX
     const containerWidth = container.parentElement?.offsetWidth ?? container.offsetWidth
-    const startSizes = [...sizes]
+    const startSizes = [...sizesRef.current]
 
     const onMove = (e: PointerEvent) => {
       const delta = (e.clientX - startX) / containerWidth * 100
@@ -185,7 +189,7 @@ export function TerminalPanel({ onClose }: { onClose: () => void }) {
     }
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
-  }, [sizes])
+  }, [])
 
   return (
     <>

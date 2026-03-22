@@ -208,6 +208,16 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
   const fg = getEditorForeground()
   const textMuted = getTextMuted()
 
+  // Precompute connection counts to avoid O(n*m) in render
+  const connectionCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const edge of filteredGraph.edges) {
+      counts.set(edge[0], (counts.get(edge[0]) ?? 0) + 1)
+      counts.set(edge[1], (counts.get(edge[1]) ?? 0) + 1)
+    }
+    return counts
+  }, [filteredGraph.edges])
+
   // Stop wheel from zooming canvas
   const containerRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -287,9 +297,7 @@ function GraphShapeComponent({ shape }: { shape: GraphShape }) {
               if (!pos) return null
               const label = nodeId.split('/').pop()?.replace('.md', '') ?? nodeId
               // Scale node size by number of connections
-              const connections = filteredGraph.edges.filter(
-                ([s, t]) => s === nodeId || t === nodeId
-              ).length
+              const connections = connectionCounts.get(nodeId) ?? 0
               const radius = Math.max(4, Math.min(12, 4 + connections * 2))
               return (
                 <g
