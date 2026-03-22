@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { useVaultStore } from '../stores/vaultStore'
+import { useEditorStore } from '../stores/editorStore'
 import { useFileStore } from '../stores/fileStore'
 import { useThemeStore } from '../lib/theme'
 
@@ -35,6 +37,25 @@ export function useKeyboardShortcuts() {
         return
       }
 
+      // Cmd+Shift+N — new window
+      if (meta && e.shiftKey && (e.key === 'N' || e.key === 'n')) {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        const label = `window-${Date.now()}`
+        const w = new WebviewWindow(label, {
+          url: '/',
+          title: 'Humanboard',
+          titleBarStyle: 'Overlay' as any,
+          hiddenTitle: true,
+          width: 800,
+          height: 600,
+        })
+        w.once('tauri://error', (err) => {
+          console.error('Failed to create window:', err)
+        })
+        return
+      }
+
       // Cmd+E — toggle IDE mode
       if (meta && e.key === 'e') {
         e.preventDefault()
@@ -47,6 +68,12 @@ export function useKeyboardShortcuts() {
         e.preventDefault()
         e.stopImmediatePropagation()
         window.dispatchEvent(new CustomEvent('humanboard:toggle-quick-open'))
+        return
+      }
+
+      // Cmd+W / Ctrl+W — prevent browser default (IdeLayout handles tab close via its own keydown)
+      if (meta && e.key === 'w') {
+        e.preventDefault()
         return
       }
 
@@ -101,9 +128,33 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler, true) // capture phase — fires before tldraw
 
-    // macOS: Cmd+W triggers native close which Rust intercepts and emits here
-    const unlisten = getCurrentWindow().listen('close-requested', () => {
-      window.dispatchEvent(new CustomEvent('humanboard:close-tab'))
+    // macOS: Cmd+W / red traffic light triggers close — Rust intercepts and emits here
+    // JS decides: close tab (IDE mode) or close/hide window (canvas mode)
+    let closing = false
+    const unlisten = getCurrentWindow().listen('close-requested', async () => {
+      if (closing) return
+      const currentWindow = getCurrentWindow()
+      const isMain = currentWindow.label === 'main'
+      const { ideMode } = useEditorStore.getState()
+      const hasOpenFiles = useFileStore.getState().files.size > 0
+
+      if (ideMode && hasOpenFiles) {
+        // IDE mode with open files: close active tab
+        // When last tab closes, IdeLayout calls onClose → sets ideMode=false
+        // Next Cmd+W will hit the canvas/close branch below
+        window.dispatchEvent(new CustomEvent('humanboard:close-tab'))
+      } else if (isMain) {
+        // Main window (canvas mode or IDE with no files): hide window (macOS stays in dock)
+        if (ideMode) {
+          // Exit IDE mode first since there's nothing open
+          useEditorStore.getState().setIdeMode(false)
+        }
+        await currentWindow.hide()
+      } else {
+        // Secondary window in canvas mode: destroy it
+        closing = true
+        await currentWindow.destroy()
+      }
     })
 
     return () => {

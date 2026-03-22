@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { FolderOpen, Folder } from 'lucide-react'
+import { FolderOpen, Folder, ArrowRight } from 'lucide-react'
 import { useVaultStore } from '../stores/vaultStore'
 import { useToastStore } from './Toast'
 
@@ -9,6 +10,8 @@ export function LandingScreen() {
   const setVaultPath = useVaultStore((s) => s.setVaultPath)
   const recentVaults = useVaultStore((s) => s.recentVaults)
   const addToast = useToastStore((s) => s.addToast)
+  const [hoveredRecent, setHoveredRecent] = useState<string | null>(null)
+  const [openHover, setOpenHover] = useState(false)
 
   const handleOpenFolder = async () => {
     const selected = await open({ directory: true, multiple: false })
@@ -40,89 +43,114 @@ export function LandingScreen() {
         width: '100%',
         height: '100vh',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'var(--hb-bg)',
         color: 'var(--hb-fg)',
-        gap: 32,
+        fontFamily: '"JetBrains Mono", monospace',
       }}
     >
+      {/* Drag region */}
       <div
         onMouseDown={handleDrag}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 28,
-          zIndex: 9999,
-        }}
+        style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 28, zIndex: 9999 }}
       />
-      <h1 style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em', marginTop: -48 }}>
-        Humanboard
-      </h1>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 280 }}>
-        <button onClick={handleOpenFolder} style={actionButtonStyle}>
-          <FolderOpen size={18} strokeWidth={1.5} />
-          Open Folder / Codebase
-        </button>
-      </div>
-
-      {recentVaults.length > 0 && (
-        <div style={{ width: 280 }}>
-          <p style={{ fontSize: 12, color: 'var(--hb-text-muted)', marginBottom: 8 }}>Recent</p>
-          {recentVaults.map((vault) => (
-            <button
-              key={vault}
-              onClick={() => handleOpenRecent(vault)}
-              style={recentButtonStyle}
-            >
-              <Folder size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
-              <span
-                style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {vault.replace(/^\/Users\/[^/]+/, '~')}
-              </span>
-            </button>
-          ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 48, width: 360 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <h1 style={{
+            fontSize: 32,
+            fontWeight: 700,
+            letterSpacing: '-0.04em',
+            margin: 0,
+            color: 'var(--hb-fg)',
+          }}>
+            Humanboard
+          </h1>
         </div>
-      )}
+
+        {/* Open folder button */}
+        <button
+          onClick={handleOpenFolder}
+          onMouseEnter={() => setOpenHover(true)}
+          onMouseLeave={() => setOpenHover(false)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '14px 20px',
+            backgroundColor: openHover ? 'var(--hb-hover)' : 'var(--hb-surface)',
+            border: '1px solid var(--hb-border)',
+            borderRadius: 10,
+            color: 'var(--hb-fg)',
+            fontSize: 13,
+            cursor: 'pointer',
+            width: '100%',
+            textAlign: 'left',
+            transition: 'all 150ms ease',
+            fontFamily: 'inherit',
+          }}
+        >
+          <FolderOpen size={18} strokeWidth={1.5} />
+          <span style={{ flex: 1 }}>Open Folder</span>
+          <ArrowRight size={14} strokeWidth={1.5} style={{ color: 'var(--hb-text-muted)', opacity: openHover ? 1 : 0, transition: 'opacity 150ms ease' }} />
+        </button>
+
+        {/* Recent projects */}
+        {recentVaults.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <p style={{
+              fontSize: 10,
+              color: 'var(--hb-text-muted)',
+              margin: '0 0 8px 0',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+            }}>
+              Recent
+            </p>
+            {recentVaults.map((vault) => {
+              const isHovered = hoveredRecent === vault
+              const parts = vault.replace(/^\/Users\/[^/]+/, '~').split('/')
+              const name = parts.pop() ?? vault
+              const dir = parts.join('/')
+
+              return (
+                <button
+                  key={vault}
+                  onClick={() => handleOpenRecent(vault)}
+                  onMouseEnter={() => setHoveredRecent(vault)}
+                  onMouseLeave={() => setHoveredRecent(null)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 12px',
+                    backgroundColor: isHovered ? 'var(--hb-hover)' : 'transparent',
+                    border: 'none',
+                    borderRadius: 8,
+                    color: 'var(--hb-fg)',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    width: '100%',
+                    textAlign: 'left',
+                    transition: 'background 120ms ease',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <Folder size={15} strokeWidth={1.5} style={{ color: 'var(--hb-text-muted)', flexShrink: 0 }} />
+                  <span style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <span style={{ fontWeight: 500, fontSize: 13 }}>{name}</span>
+                    <span style={{ fontSize: 10, color: 'var(--hb-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dir}</span>
+                  </span>
+                  <ArrowRight size={12} strokeWidth={1.5} style={{ color: 'var(--hb-text-muted)', opacity: isHovered ? 1 : 0, transition: 'opacity 120ms ease', flexShrink: 0 }} />
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+      </div>
     </div>
   )
-}
-
-const actionButtonStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  padding: '10px 16px',
-  backgroundColor: 'var(--hb-surface)',
-  border: '1px solid var(--hb-border)',
-  borderRadius: 8,
-  color: 'var(--hb-fg)',
-  fontSize: 14,
-  cursor: 'pointer',
-  width: '100%',
-  textAlign: 'left',
-}
-
-const recentButtonStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: '6px 10px',
-  backgroundColor: 'transparent',
-  border: 'none',
-  borderRadius: 6,
-  color: 'var(--hb-text-muted)',
-  fontSize: 13,
-  cursor: 'pointer',
-  width: '100%',
-  textAlign: 'left',
 }

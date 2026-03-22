@@ -334,10 +334,6 @@ export function Canvas() {
         e.preventDefault()
         const { x, y } = editor.getViewportPageBounds().center
         editor.createShape({ type: 'terminal-shape', x: x - 350, y: y - 210, props: { w: 700, h: 420, shell: '' } })
-      } else if (e.key === 'n') {
-        e.preventDefault()
-        const { x, y } = editor.getViewportPageBounds().center
-        editor.createShape({ type: 'note-shape', x: x - 150, y: y - 125, props: { w: 300, h: 250, content: '' } })
       } else if (e.key === 'g') {
         e.preventDefault()
         const { x, y } = editor.getViewportPageBounds().center

@@ -12,18 +12,27 @@ pub fn run() {
         .plugin(tauri_plugin_pty::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_process::init())
         .on_window_event(|window, event| {
+            // macOS: intercept Cmd+W (close) — let JS decide whether to close tab or window
+            #[cfg(target_os = "macos")]
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                #[cfg(target_os = "macos")]
-                {
-                    // Prevent Cmd+W from closing — emit to JS to handle as tab close
+                if window.label() == "main" {
+                    // Main window: always intercept, let JS handle
+                    api.prevent_close();
+                    let _ = window.emit("close-requested", ());
+                } else {
+                    // Secondary windows: intercept so JS can handle, but JS will destroy
                     api.prevent_close();
                     let _ = window.emit("close-requested", ());
                 }
-                #[cfg(not(target_os = "macos"))]
-                {
-                    let _ = (window, api); // suppress unused warnings
-                }
+            }
+            // Linux/Windows: let close happen normally
+            #[cfg(not(target_os = "macos"))]
+            {
+                let _ = (window, event);
             }
         })
         .manage(VaultRoot(Mutex::new(None)))
@@ -48,6 +57,21 @@ pub fn run() {
             commands::lsp::lsp_send,
             commands::lsp::lsp_stop,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // macOS: clicking dock icon when no windows visible — re-show main window
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                use tauri::Manager;
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                let _ = (app, event);
+            }
+        });
 }
