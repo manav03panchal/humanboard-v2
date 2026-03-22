@@ -28,14 +28,20 @@ export function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath
   const getLineNumberColor = useThemeStore((s) => s.getLineNumberColor)
   const getActiveLineBackground = useThemeStore((s) => s.getActiveLineBackground)
 
+  // Refs to avoid stale closures in Vim.defineEx global handlers
+  const filePathRef = useRef(filePath)
+  filePathRef.current = filePath
+  const vaultPathRef = useRef(vaultPath)
+  vaultPathRef.current = vaultPath
+
   // Wire vim :w, :wq, :q commands
   useEffect(() => {
     if (!vimMode) return
     Vim.defineEx('write', 'w', () => {
-      saveFile(vaultPath, filePath).catch((err) => console.error('Failed to save:', err))
+      saveFile(vaultPathRef.current, filePathRef.current).catch((err) => console.error('Failed to save:', err))
     })
     Vim.defineEx('quit', 'q', () => {
-      useFileStore.getState().closeFile(filePath)
+      useFileStore.getState().closeFile(filePathRef.current)
       // Focus next editor after React re-renders
       setTimeout(() => {
         const cm = document.querySelector('.cm-editor .cm-content') as HTMLElement
@@ -43,15 +49,15 @@ export function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath
       }, 50)
     })
     Vim.defineEx('wquit', 'wq', () => {
-      saveFile(vaultPath, filePath).then(() => {
-        useFileStore.getState().closeFile(filePath)
+      saveFile(vaultPathRef.current, filePathRef.current).then(() => {
+        useFileStore.getState().closeFile(filePathRef.current)
         setTimeout(() => {
           const cm = document.querySelector('.cm-editor .cm-content') as HTMLElement
           cm?.focus()
         }, 50)
       }).catch((err) => console.error('Failed to save:', err))
     })
-  }, [vimMode, vaultPath, filePath, saveFile])
+  }, [vimMode, saveFile])
 
   // LSP — only active in IDE mode (canvas shapes own LSP in canvas mode)
   // Delayed init: canvas LSP cleanup runs first, then IDE takes over the URI

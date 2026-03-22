@@ -202,7 +202,7 @@ pub fn lsp_send(app: AppHandle, server_id: u32, message: String) -> Result<(), S
     let server = state
         .servers
         .get_mut(&server_id)
-        .ok_or("LSP server not found")?;
+        .ok_or(format!("LSP server {server_id} not found"))?;
 
     let header = format!("Content-Length: {}\r\n\r\n", message.len());
     server

@@ -150,7 +150,7 @@ const TreeFileItem = memo(function TreeFileItem({
       {diag && (
         <span style={{ display: 'flex', gap: 3, flexShrink: 0, alignItems: 'center' }}>
           {diag.errors > 0 && (
-            <span style={{ fontSize: 10, color: '#e06c75', fontWeight: 600 }}>{diag.errors}</span>
+            <span style={{ fontSize: 10, color: '#ff453a', fontWeight: 600 }}>{diag.errors}</span>
           )}
           {diag.warnings > 0 && (
             <span style={{ fontSize: 10, color: '#e5c07b', fontWeight: 600 }}>{diag.warnings}</span>

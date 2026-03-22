@@ -19,9 +19,29 @@ interface ManagedTerminal {
   searchAddon: SearchAddon
   pty: ReturnType<typeof spawn>
   container: HTMLDivElement
+  resizeObserver?: ResizeObserver
   onTitleChange?: (title: string) => void
   onExit?: () => void
 }
+
+export const TERMINAL_THEME = {
+  black: '#1a1a1a',
+  red: '#e06c75',
+  green: '#98c379',
+  yellow: '#e5c07b',
+  blue: '#61afef',
+  magenta: '#c678dd',
+  cyan: '#56b6c2',
+  white: '#abb2bf',
+  brightBlack: '#5c6370',
+  brightRed: '#e06c75',
+  brightGreen: '#98c379',
+  brightYellow: '#e5c07b',
+  brightBlue: '#61afef',
+  brightMagenta: '#c678dd',
+  brightCyan: '#56b6c2',
+  brightWhite: '#ffffff',
+} as const
 
 const terminals = new Map<number, ManagedTerminal>()
 
@@ -49,22 +69,7 @@ export function createTerminal(id: number, cwd?: string): ManagedTerminal {
       cursor: fg,
       cursorAccent: bg,
       selectionBackground: 'rgba(255, 255, 255, 0.15)',
-      black: '#1a1a1a',
-      red: '#e06c75',
-      green: '#98c379',
-      yellow: '#e5c07b',
-      blue: '#61afef',
-      magenta: '#c678dd',
-      cyan: '#56b6c2',
-      white: '#abb2bf',
-      brightBlack: '#5c6370',
-      brightRed: '#e06c75',
-      brightGreen: '#98c379',
-      brightYellow: '#e5c07b',
-      brightBlue: '#61afef',
-      brightMagenta: '#c678dd',
-      brightCyan: '#56b6c2',
-      brightWhite: '#ffffff',
+      ...TERMINAL_THEME,
     },
     allowProposedApi: true,
   })
@@ -162,6 +167,7 @@ function openTerminal(managed: ManagedTerminal) {
       managed.pty.resize(term.cols, term.rows)
     } catch {}
   })
+  managed.resizeObserver = resizeObserver
   resizeObserver.observe(container)
 
   // Title changes
@@ -207,6 +213,7 @@ export function focusTerminal(id: number) {
 export function destroyTerminal(id: number) {
   const managed = terminals.get(id)
   if (!managed) return
+  managed.resizeObserver?.disconnect()
   try { managed.pty.kill() } catch {}
   managed.term.dispose()
   managed.container.remove()

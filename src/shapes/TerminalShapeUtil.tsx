@@ -12,6 +12,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { LigaturesAddon } from '@xterm/addon-ligatures'
 import { spawn } from 'tauri-pty'
 import { useThemeStore } from '../lib/theme'
+import { TERMINAL_THEME } from '../lib/terminalManager'
 import { usePtyStore } from '../stores/ptyStore'
 import { useVaultStore } from '../stores/vaultStore'
 import { useCallback, useRef, useEffect, useState } from 'react'
@@ -101,22 +102,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
         cursor: editorFg,
         cursorAccent: editorBg,
         selectionBackground: 'rgba(255, 255, 255, 0.15)',
-        black: '#1a1a1a',
-        red: '#e06c75',
-        green: '#98c379',
-        yellow: '#e5c07b',
-        blue: '#61afef',
-        magenta: '#c678dd',
-        cyan: '#56b6c2',
-        white: '#abb2bf',
-        brightBlack: '#5c6370',
-        brightRed: '#e06c75',
-        brightGreen: '#98c379',
-        brightYellow: '#e5c07b',
-        brightBlue: '#61afef',
-        brightMagenta: '#c678dd',
-        brightCyan: '#56b6c2',
-        brightWhite: '#ffffff',
+        ...TERMINAL_THEME,
       },
       allowProposedApi: true,
     })

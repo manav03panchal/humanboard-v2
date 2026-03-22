@@ -100,7 +100,7 @@ export const StatusBar = memo(function StatusBar({ ideMode }: { ideMode?: boolea
               borderRadius: '50%',
               backgroundColor:
                 status === 'ready' ? '#98c379' :
-                status === 'error' ? '#e06c75' :
+                status === 'error' ? '#ff453a' :
                 status === 'connecting' ? 'var(--hb-text-muted)' :
                 '#e5c07b',
               display: 'inline-block',
