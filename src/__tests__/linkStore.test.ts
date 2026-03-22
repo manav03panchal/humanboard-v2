@@ -5,8 +5,6 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 let useLinkStore: typeof import('../stores/linkStore').useLinkStore
-let parseWikilinks: typeof import('../stores/linkStore').parseWikilinks
-let resolveWikilink: typeof import('../stores/linkStore').resolveWikilink
 
 describe('linkStore', () => {
   beforeEach(async () => {
@@ -14,78 +12,96 @@ describe('linkStore', () => {
     vi.clearAllMocks()
     const mod = await import('../stores/linkStore')
     useLinkStore = mod.useLinkStore
-    parseWikilinks = mod.parseWikilinks
-    resolveWikilink = mod.resolveWikilink
   })
 
-  describe('parseWikilinks', () => {
+  describe('parseWikilinks (via scanFile)', () => {
+    const allFiles = ['world.md']
+
     it('parses single wikilink', () => {
-      expect(parseWikilinks('Hello [[world]]')).toEqual(['world'])
+      useLinkStore.getState().scanFile('test.md', 'Hello [[world]]', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')).toEqual(new Set(['world.md']))
     })
 
     it('parses multiple wikilinks', () => {
-      expect(parseWikilinks('[[foo]] and [[bar]]')).toEqual(['foo', 'bar'])
+      const allFiles = ['foo.md', 'bar.md']
+      useLinkStore.getState().scanFile('test.md', '[[foo]] and [[bar]]', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')).toEqual(new Set(['foo.md', 'bar.md']))
     })
 
-    it('returns empty array for no wikilinks', () => {
-      expect(parseWikilinks('no links here')).toEqual([])
+    it('returns empty set for no wikilinks', () => {
+      useLinkStore.getState().scanFile('test.md', 'no links here', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')!.size).toBe(0)
     })
 
     it('trims whitespace in wikilink names', () => {
-      expect(parseWikilinks('[[ hello ]]')).toEqual(['hello'])
-    })
-
-    it('handles wikilinks with special characters', () => {
-      expect(parseWikilinks('[[my-note]]')).toEqual(['my-note'])
-      expect(parseWikilinks('[[my note]]')).toEqual(['my note'])
+      useLinkStore.getState().scanFile('test.md', '[[ world ]]', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')).toEqual(new Set(['world.md']))
     })
 
     it('does not match incomplete brackets', () => {
-      expect(parseWikilinks('[[incomplete')).toEqual([])
-      expect(parseWikilinks('incomplete]]')).toEqual([])
+      useLinkStore.getState().scanFile('test.md', '[[incomplete', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')!.size).toBe(0)
     })
 
     it('handles wikilinks in multiline content', () => {
+      const allFiles = ['note-a.md', 'note-b.md', 'note-c.md']
       const content = `# Title
 Some text with [[note-a]]
 More text
 - [[note-b]]
 - [[note-c]]`
-      expect(parseWikilinks(content)).toEqual(['note-a', 'note-b', 'note-c'])
+      useLinkStore.getState().scanFile('test.md', content, allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')).toEqual(new Set(['note-a.md', 'note-b.md', 'note-c.md']))
     })
   })
 
-  describe('resolveWikilink', () => {
-    const allFiles = [
-      'notes/hello.md',
-      'notes/world.md',
-      'deep/path/MyNote.md',
-    ]
-
+  describe('resolveWikilink (via scanFile)', () => {
     it('resolves exact filename match', () => {
-      expect(resolveWikilink('hello', allFiles)).toBe('notes/hello.md')
+      const allFiles = ['notes/hello.md']
+      useLinkStore.getState().scanFile('test.md', '[[hello]]', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')).toEqual(new Set(['notes/hello.md']))
     })
 
     it('resolves case-insensitively', () => {
-      expect(resolveWikilink('Hello', allFiles)).toBe('notes/hello.md')
-      expect(resolveWikilink('WORLD', allFiles)).toBe('notes/world.md')
+      const allFiles = ['notes/hello.md']
+      useLinkStore.getState().scanFile('test.md', '[[Hello]]', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')).toEqual(new Set(['notes/hello.md']))
     })
 
     it('resolves nested files by filename', () => {
-      expect(resolveWikilink('MyNote', allFiles)).toBe('deep/path/MyNote.md')
+      const allFiles = ['deep/path/MyNote.md']
+      useLinkStore.getState().scanFile('test.md', '[[MyNote]]', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')).toEqual(new Set(['deep/path/MyNote.md']))
     })
 
     it('resolves case-insensitive nested files', () => {
-      expect(resolveWikilink('mynote', allFiles)).toBe('deep/path/MyNote.md')
+      const allFiles = ['deep/path/MyNote.md']
+      useLinkStore.getState().scanFile('test.md', '[[mynote]]', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')).toEqual(new Set(['deep/path/MyNote.md']))
     })
 
-    it('returns null for unresolvable links', () => {
-      expect(resolveWikilink('nonexistent', allFiles)).toBeNull()
+    it('returns empty set for unresolvable links', () => {
+      const allFiles = ['notes/hello.md']
+      useLinkStore.getState().scanFile('test.md', '[[nonexistent]]', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')!.size).toBe(0)
     })
 
     it('handles root-level files', () => {
-      const files = ['readme.md', 'notes/foo.md']
-      expect(resolveWikilink('readme', files)).toBe('readme.md')
+      const allFiles = ['readme.md', 'notes/foo.md']
+      useLinkStore.getState().scanFile('test.md', '[[readme]]', allFiles)
+      const { links } = useLinkStore.getState()
+      expect(links.get('test.md')).toEqual(new Set(['readme.md']))
     })
   })
 

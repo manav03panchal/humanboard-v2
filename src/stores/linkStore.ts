@@ -20,7 +20,7 @@ interface LinkStore {
   clear: () => void
 }
 
-export function resolveWikilink(
+function resolveWikilink(
   name: string,
   allMdFiles: string[]
 ): string | null {
@@ -38,7 +38,7 @@ export function resolveWikilink(
   return byName ?? null
 }
 
-export function parseWikilinks(content: string): string[] {
+function parseWikilinks(content: string): string[] {
   const matches: string[] = []
   let match
   const regex = new RegExp(WIKILINK_REGEX.source, WIKILINK_REGEX.flags)

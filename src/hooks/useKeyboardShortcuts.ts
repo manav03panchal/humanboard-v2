@@ -45,7 +45,7 @@ export function useKeyboardShortcuts() {
         const w = new WebviewWindow(label, {
           url: '/',
           title: 'Humanboard',
-          titleBarStyle: 'Overlay' as any,
+          titleBarStyle: 'overlay',
           hiddenTitle: true,
           width: 800,
           height: 600,

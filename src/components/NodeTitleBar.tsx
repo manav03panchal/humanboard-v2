@@ -92,14 +92,14 @@ export function NodeTitleBar({ filePath, isDirty, shapeId, label, icon, extraAct
       >
         {extraActions}
         <button
-          onPointerDown={(e) => { e.stopPropagation(); handleCopy(e as any) }}
+          onPointerDown={(e) => { e.stopPropagation(); handleCopy(e) }}
           style={iconButtonStyle}
           title="Copy content"
         >
           <Copy size={12} strokeWidth={1.5} />
         </button>
         <button
-          onPointerDown={(e) => { e.stopPropagation(); handleClose(e as any) }}
+          onPointerDown={(e) => { e.stopPropagation(); handleClose(e) }}
           style={iconButtonStyle}
           title="Close"
         >

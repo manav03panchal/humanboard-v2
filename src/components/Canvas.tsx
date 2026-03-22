@@ -16,12 +16,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { IMAGE_EXTENSIONS, PDF_EXTENSIONS, AUDIO_EXTENSIONS, MARKDOWN_EXTENSIONS, ALL_SHAPE_TYPES, isBinaryFile, getShapeConfig } from '../lib/fileTypes'
 import { TLDRAW_OPTIONS, tldrawComponents } from '../lib/canvasConfig'
-import { findNonOverlappingPosition } from '../lib/canvasUtils'
-
-function getShapeFilePath(shape: { props?: unknown }): string | undefined {
-  const props = shape?.props as Record<string, unknown> | undefined
-  return typeof props?.filePath === 'string' ? props.filePath : undefined
-}
+import { findNonOverlappingPosition, getShapeFilePath } from '../lib/canvasUtils'
 
 export function Canvas() {
   useFileWatcher()

@@ -321,7 +321,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
           style={{ display: 'flex', gap: 2, pointerEvents: 'all' }}
         >
           <button
-            onPointerDown={(e) => { e.stopPropagation(); handleClose(e as any) }}
+            onPointerDown={(e) => { e.stopPropagation(); handleClose(e) }}
             style={{
               background: 'none',
               border: 'none',

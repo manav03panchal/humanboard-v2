@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fuzzyMatch } from '../components/QuickOpen'
+import { fuzzyMatch } from '../lib/fuzzyMatch'
 
 describe('fuzzyMatch', () => {
   it('matches exact string', () => {

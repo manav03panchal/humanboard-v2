@@ -243,7 +243,7 @@ function MarkdownShapeComponent({ shape }: { shape: MarkdownShape }) {
         shapeId={shape.id}
         extraActions={
           <button
-            onPointerDown={(e) => { e.stopPropagation(); handleToggleMode(e as any) }}
+            onPointerDown={(e) => { e.stopPropagation(); handleToggleMode(e) }}
             style={{
               background: 'none',
               border: 'none',

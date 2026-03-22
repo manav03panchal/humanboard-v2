@@ -1,5 +1,10 @@
 import type { Editor } from 'tldraw'
 
+export function getShapeFilePath(shape: { props?: unknown }): string | undefined {
+  const props = shape?.props as Record<string, unknown> | undefined
+  return typeof props?.filePath === 'string' ? props.filePath : undefined
+}
+
 // Find a position that doesn't overlap existing shapes
 export function findNonOverlappingPosition(editor: Editor, baseX: number, baseY: number, w: number, h: number) {
   const shapes = editor.getCurrentPageShapes()

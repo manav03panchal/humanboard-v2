@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { Editor } from 'tldraw'
 import { getFileIcon } from '../lib/fileIcons'
+import { getShapeFilePath } from '../lib/canvasUtils'
 
 interface HomingDot {
   id: string
@@ -60,7 +61,7 @@ export function ShapeHoming({ editor }: { editor: Editor | null }) {
       edgeX = Math.max(MARGIN, Math.min(viewport.w - MARGIN, edgeX))
       edgeY = Math.max(MARGIN + 40, Math.min(viewport.h - MARGIN - 30, edgeY)) // account for title bar + status bar
 
-      const filePath = (shape.props as any)?.filePath ?? ''
+      const filePath = getShapeFilePath(shape) ?? ''
       const label = filePath ? filePath.split('/').pop() ?? shape.type : shape.type
 
       result.push({ id: shape.id, x: edgeX, y: edgeY, label, filePath })
