@@ -128,8 +128,8 @@ function PdfShapeComponent({ shape }: { shape: PdfShape }) {
         <div style={{
           padding: '4px 12px',
           fontSize: 11,
-          color: '#888',
-          borderBottom: '1px solid #1a1a1a',
+          color: 'var(--hb-text-muted)',
+          borderBottom: '1px solid var(--hb-border)',
           textAlign: 'center',
         }}>
           {numPages} page{numPages !== 1 ? 's' : ''}
@@ -151,7 +151,7 @@ function PdfShapeComponent({ shape }: { shape: PdfShape }) {
             file={pdfSrc}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={(err) => setError(`PDF load error: ${err.message}`)}
-            loading={<span style={{ color: '#888', padding: 16 }}>Loading PDF...</span>}
+            loading={<span style={{ color: 'var(--hb-text-muted)', padding: 16 }}>Loading PDF...</span>}
           >
             {Array.from(new Array(numPages), (_, index) => (
               <Page
@@ -160,12 +160,12 @@ function PdfShapeComponent({ shape }: { shape: PdfShape }) {
                 width={shape.props.w - 40}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
-                loading={<span style={{ color: '#888' }}>Loading page {index + 1}...</span>}
+                loading={<span style={{ color: 'var(--hb-text-muted)' }}>Loading page {index + 1}...</span>}
               />
             ))}
           </Document>
         ) : (
-          <span style={{ color: '#888', padding: 16 }}>Loading...</span>
+          <span style={{ color: 'var(--hb-text-muted)', padding: 16 }}>Loading...</span>
         )}
       </div>
     </HTMLContainer>

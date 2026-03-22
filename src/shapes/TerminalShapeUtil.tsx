@@ -286,11 +286,11 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
           alignItems: 'center',
           gap: 8,
           padding: '6px 12px',
-          backgroundColor: '#0a0a0a',
-          borderBottom: '1px solid #1a1a1a',
+          backgroundColor: 'var(--hb-bg)',
+          borderBottom: '1px solid var(--hb-border)',
         }}>
           <TerminalIcon size={14} strokeWidth={1.5} />
-          <span style={{ flex: 1, fontSize: 12, color: '#999' }}>Terminal</span>
+          <span style={{ flex: 1, fontSize: 12, color: 'var(--hb-text-muted)' }}>Terminal</span>
         </div>
         <div style={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {error}
@@ -316,15 +316,15 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
           alignItems: 'center',
           gap: 8,
           padding: '6px 12px',
-          backgroundColor: '#0a0a0a',
-          borderBottom: '1px solid #1a1a1a',
+          backgroundColor: 'var(--hb-bg)',
+          borderBottom: '1px solid var(--hb-border)',
           cursor: 'grab',
           userSelect: 'none',
           minHeight: 32,
         }}
       >
-        <TerminalIcon size={14} strokeWidth={1.5} color="#999" />
-        <span style={{ flex: 1, fontSize: 12, color: '#999' }}>
+        <TerminalIcon size={14} strokeWidth={1.5} color="var(--hb-text-muted)" />
+        <span style={{ flex: 1, fontSize: 12, color: 'var(--hb-text-muted)' }}>
           Terminal — {shape.props.shell || '/bin/zsh'}
         </span>
         <div
@@ -339,7 +339,7 @@ function TerminalShapeComponent({ shape }: { shape: TerminalShape }) {
             style={{
               background: 'none',
               border: 'none',
-              color: '#666',
+              color: 'var(--hb-text-muted)',
               cursor: 'pointer',
               padding: 4,
               display: 'flex',

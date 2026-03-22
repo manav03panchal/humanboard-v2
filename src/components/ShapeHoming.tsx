@@ -72,12 +72,27 @@ export function ShapeHoming({ editor }: { editor: Editor | null }) {
   useEffect(() => {
     if (!editor) return
 
+    // Throttle updates to once per animation frame
+    let rafId: number | null = null
+    const scheduleUpdate = () => {
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null
+          updateDots()
+        })
+      }
+    }
+
     // Update on camera changes and shape changes
-    const unsub = editor.store.listen(updateDots, { scope: 'session' })
-    const unsub2 = editor.store.listen(updateDots, { scope: 'document' })
+    const unsub = editor.store.listen(scheduleUpdate, { scope: 'session' })
+    const unsub2 = editor.store.listen(scheduleUpdate, { scope: 'document' })
     updateDots()
 
-    return () => { unsub(); unsub2() }
+    return () => {
+      unsub()
+      unsub2()
+      if (rafId !== null) cancelAnimationFrame(rafId)
+    }
   }, [editor, updateDots])
 
   if (dots.length === 0) return null

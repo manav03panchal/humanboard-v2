@@ -21,7 +21,7 @@ export const useDiagnosticStore = create<DiagnosticStore>((set, get) => ({
       // Normalize to relative path for O(1) sidebar lookups
       let path = uri.replace(/^file:\/\//, '')
       // Strip vault root prefix if present
-      const vaultPath = (globalThis as any).__humanboard_vault_path
+      const vaultPath = window.__humanboard_vault_path
       if (vaultPath && path.startsWith(vaultPath + '/')) {
         path = path.slice(vaultPath.length + 1)
       }

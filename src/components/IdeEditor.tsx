@@ -32,7 +32,7 @@ export function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath
   useEffect(() => {
     if (!vimMode) return
     Vim.defineEx('write', 'w', () => {
-      saveFile(vaultPath, filePath)
+      saveFile(vaultPath, filePath).catch((err) => console.error('Failed to save:', err))
     })
     Vim.defineEx('quit', 'q', () => {
       useFileStore.getState().closeFile(filePath)
@@ -49,7 +49,7 @@ export function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath
           const cm = document.querySelector('.cm-editor .cm-content') as HTMLElement
           cm?.focus()
         }, 50)
-      })
+      }).catch((err) => console.error('Failed to save:', err))
     })
   }, [vimMode, vaultPath, filePath, saveFile])
 
@@ -150,16 +150,6 @@ export function IdeEditor({ filePath, vaultPath }: { filePath: string; vaultPath
     [filePath, updateContent]
   )
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault()
-        saveFile(vaultPath, filePath)
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [vaultPath, filePath, saveFile])
 
   if (!file) {
     return (

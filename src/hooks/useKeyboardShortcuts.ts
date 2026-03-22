@@ -111,7 +111,7 @@ export function useKeyboardShortcuts() {
         const { files, saveFile } = useFileStore.getState()
         for (const [path, file] of files) {
           if (file.isDirty) {
-            saveFile(vaultPath, path)
+            saveFile(vaultPath, path).catch(() => {})
           }
         }
         return

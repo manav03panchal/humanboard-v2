@@ -22,6 +22,7 @@ import { useDiagnosticStore } from '../stores/diagnosticStore'
 import { usePlatform } from '../hooks/usePlatform'
 import { QuickOpen } from './QuickOpen'
 import { ThemePicker } from './ThemePicker'
+import { ErrorBoundary } from './ErrorBoundary'
 
 export function Workspace() {
   const vaultPath = useVaultStore((s) => s.vaultPath)!
@@ -73,7 +74,7 @@ export function Workspace() {
 
   // On vault change: load theme, clear all state, reset to canvas
   useEffect(() => {
-    (globalThis as any).__humanboard_vault_path = vaultPath
+    window.__humanboard_vault_path = vaultPath
     setIdeMode(false)
     loadTheme(vaultPath)
     const { files, closeFile } = useFileStore.getState()
@@ -104,9 +105,9 @@ export function Workspace() {
     [vaultPath, openFile, addToast]
   )
 
-  const handleDrag = (e: React.MouseEvent) => {
+  const handleDrag = useCallback((e: React.MouseEvent) => {
     if (e.buttons === 1) getCurrentWindow().startDragging()
-  }
+  }, [])
 
   return (
     <div style={{ display: 'flex', width: '100%', height: 'calc(100vh - 24px)' }}>
@@ -174,7 +175,7 @@ export function Workspace() {
             pointerEvents: ideMode ? 'none' : 'auto',
           }}
         >
-          <Canvas key={vaultPath} />
+          <ErrorBoundary><Canvas key={vaultPath} /></ErrorBoundary>
         </div>
         <div
           style={{
@@ -188,11 +189,13 @@ export function Workspace() {
             pointerEvents: ideMode ? 'auto' : 'none',
           }}
         >
-          <IdeLayout
-            key={vaultPath}
-            openFiles={openFiles}
-            onClose={() => setIdeMode(false)}
-          />
+          <ErrorBoundary>
+            <IdeLayout
+              key={vaultPath}
+              openFiles={openFiles}
+              onClose={() => setIdeMode(false)}
+            />
+          </ErrorBoundary>
         </div>
         </div>
       </div>

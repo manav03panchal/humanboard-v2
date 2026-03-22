@@ -219,6 +219,7 @@ export function TerminalPanel({ onClose }: { onClose: () => void }) {
                     <TerminalIcon size={11} />
                     <span>{tab.label}</span>
                     <button
+                      aria-label="Close terminal"
                       onClick={(e) => { e.stopPropagation(); closeTab(pane.id, tab.id) }}
                       style={{ background: 'none', border: 'none', color: 'var(--hb-text-muted)', cursor: 'pointer', padding: 1, display: 'flex' }}
                     ><X size={11} /></button>
@@ -343,7 +344,7 @@ export function SingleTerminal({ id, visible, onTitle, onExit }: { id: number; v
   // container into the new slot. No unmount, no PTY reset.
   useEffect(() => {
     if (slotRef.current) mountTerminal(id, slotRef.current)
-  })
+  }, [id])
 
   // Refit when visible
   useEffect(() => {

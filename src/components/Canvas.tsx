@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, useState } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 import {
   Tldraw,
   type Editor,
@@ -18,12 +18,18 @@ import { IMAGE_EXTENSIONS, PDF_EXTENSIONS, AUDIO_EXTENSIONS, MARKDOWN_EXTENSIONS
 import { TLDRAW_OPTIONS, tldrawComponents } from '../lib/canvasConfig'
 import { findNonOverlappingPosition } from '../lib/canvasUtils'
 
+function getShapeFilePath(shape: { props?: unknown }): string | undefined {
+  const props = shape?.props as Record<string, unknown> | undefined
+  return typeof props?.filePath === 'string' ? props.filePath : undefined
+}
+
 export function Canvas() {
   useFileWatcher()
   const editorRef = useRef<Editor | null>(null)
   const vaultPath = useVaultStore((s) => s.vaultPath)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
+  const isDraggingRef = useRef(false)
+  const dropOverlayRef = useRef<HTMLDivElement | null>(null)
 
   const handleMount = useCallback(
     (editor: Editor) => {
@@ -76,7 +82,7 @@ export function Canvas() {
             }
             // Rehydrate file content for code/markdown shapes
             if (shape.type === 'code-shape' || shape.type === 'markdown-shape') {
-              const filePath = (shape as any).props.filePath
+              const filePath = getShapeFilePath(shape)
               if (filePath) {
                 useFileStore.getState().openFile(vaultPath, filePath).catch(() => {
                   editor.deleteShape(shape.id)
@@ -86,7 +92,7 @@ export function Canvas() {
             // Image shapes load via convertFileSrc, no rehydration needed
             // PDF shapes load their own content, no rehydration needed
           }
-        })
+        }).catch((err) => console.error('Failed to load canvas:', err))
       }
       // Auto-save on changes (debounced 2s)
       const unlistenSave = editor.store.listen(
@@ -136,8 +142,8 @@ export function Canvas() {
 
   // Expose editor ref for sidebar drag-drop
   useEffect(() => {
-    (window as any).__humanboard_editor = editorRef
-    return () => { delete (window as any).__humanboard_editor }
+    window.__humanboard_editor = editorRef
+    return () => { delete window.__humanboard_editor }
   }, [])
 
   useEffect(() => {
@@ -148,7 +154,7 @@ export function Canvas() {
 
       // Check if shape already exists
       const existing = editor.getCurrentPageShapes().find(
-        (s) => (ALL_SHAPE_TYPES as readonly string[]).includes(s.type) && (s as any).props.filePath === filePath
+        (s) => (ALL_SHAPE_TYPES as readonly string[]).includes(s.type) && getShapeFilePath(s) === filePath
       )
       if (existing) {
         editor.select(existing.id)
@@ -198,7 +204,7 @@ export function Canvas() {
         setTimeout(() => {
           const shapes = editor.getCurrentPageShapes()
           const created = shapes.find(
-            (s) => (ALL_SHAPE_TYPES as readonly string[]).includes(s.type) && (s as any).props.filePath === filePath
+            (s) => (ALL_SHAPE_TYPES as readonly string[]).includes(s.type) && getShapeFilePath(s) === filePath
           )
           if (created) {
             editor.select(created.id)
@@ -228,11 +234,14 @@ export function Canvas() {
 
     getCurrentWebview().onDragDropEvent(async (event) => {
       if (event.payload.type === 'enter' || event.payload.type === 'over') {
-        setIsDragging(true)
+        isDraggingRef.current = true
+        if (dropOverlayRef.current) dropOverlayRef.current.style.display = 'flex'
       } else if (event.payload.type === 'leave') {
-        setIsDragging(false)
+        isDraggingRef.current = false
+        if (dropOverlayRef.current) dropOverlayRef.current.style.display = 'none'
       } else if (event.payload.type === 'drop') {
-        setIsDragging(false)
+        isDraggingRef.current = false
+        if (dropOverlayRef.current) dropOverlayRef.current.style.display = 'none'
         const editor = editorRef.current
         if (!editor || !vaultPath) return
 
@@ -273,7 +282,7 @@ export function Canvas() {
           // Check if already open
           const existing = editor.getCurrentPageShapes().find(
             (s) => ['code-shape', 'image-shape', 'markdown-shape', 'pdf-shape', 'audio-shape'].includes(s.type) &&
-              (s as any).props.filePath === relativePath
+              getShapeFilePath(s) === relativePath
           )
           if (existing) {
             editor.select(existing.id)
@@ -329,17 +338,17 @@ export function Canvas() {
 
   // Handle sidebar file drag-drop (React drag, not Tauri native)
   const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
-    if ((window as any).__humanboard_dragging_file) {
+    if (window.__humanboard_dragging_file) {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'copy'
     }
   }, [])
 
   const handleCanvasDrop = useCallback(async (e: React.DragEvent) => {
-    const filePath = (window as any).__humanboard_dragging_file as string | undefined
+    const filePath = window.__humanboard_dragging_file
     if (!filePath) return
     e.preventDefault()
-    delete (window as any).__humanboard_dragging_file
+    delete window.__humanboard_dragging_file
 
     const editor = editorRef.current
     if (!editor || !vaultPath) return
@@ -369,26 +378,25 @@ export function Canvas() {
       onDragOver={handleCanvasDragOver}
       onDrop={handleCanvasDrop}
     >
-      {isDragging && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(82, 139, 255, 0.08)',
-            border: '2px dashed rgba(82, 139, 255, 0.4)',
-            borderRadius: 8,
-            pointerEvents: 'none',
-          }}
-        >
-          <span style={{ color: '#528bff', fontSize: 16, fontWeight: 500 }}>
-            Drop files to open on canvas
-          </span>
-        </div>
-      )}
+      <div
+        ref={dropOverlayRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 1000,
+          display: 'none',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(82, 139, 255, 0.08)',
+          border: '2px dashed rgba(82, 139, 255, 0.4)',
+          borderRadius: 8,
+          pointerEvents: 'none',
+        }}
+      >
+        <span style={{ color: '#528bff', fontSize: 16, fontWeight: 500 }}>
+          Drop files to open on canvas
+        </span>
+      </div>
       <Tldraw
         shapeUtils={customShapeUtils}
         onMount={handleMount}

@@ -71,6 +71,7 @@ export const Tab = memo(function Tab({ filePath, isActive, isPreview, onTogglePr
       )}
       {(hovered || isActive) && (
         <button
+          aria-label="Close tab"
           onClick={(e) => { e.stopPropagation(); onClose() }}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
