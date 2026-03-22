@@ -25,10 +25,10 @@ pub fn watch_vault(app: AppHandle, vault_path: String) -> Result<(), String> {
 
     let vault_root =
         std::fs::canonicalize(&vault_path).map_err(|e| format!("Invalid vault path: {e}"))?;
-    let vault_root_clone = vault_root.clone();
+    let vault_root_clone = vault_root;
     let app_handle = app.clone();
 
-    let skip_dirs: Vec<&str> = vec!["node_modules", ".git", "target", "dist", ".humanboard"];
+    let skip_dirs: Vec<&str> = super::files::SKIP_DIRS.to_vec();
 
     let watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| {
         if let Ok(event) = res {
@@ -62,7 +62,7 @@ pub fn watch_vault(app: AppHandle, vault_path: String) -> Result<(), String> {
                         "vault:file-changed",
                         FileChangeEvent {
                             path: relative.to_string_lossy().to_string(),
-                            kind: kind.to_string(),
+                            kind: kind.to_owned(),
                         },
                     );
                 }

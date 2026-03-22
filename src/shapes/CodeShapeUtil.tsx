@@ -23,6 +23,7 @@ import { search, searchKeymap } from '@codemirror/search'
 import { indentationMarkers } from '@replit/codemirror-indentation-markers'
 import { keymap } from '@codemirror/view'
 import type { Extension } from '@codemirror/state'
+import { BASIC_SETUP } from '../lib/editorConfig'
 
 declare module 'tldraw' {
   interface TLGlobalShapePropsMap {
@@ -74,14 +75,6 @@ export class CodeShapeUtil extends BaseBoxShapeUtil<CodeShape> {
     return <rect width={shape.props.w} height={shape.props.h} />
   }
 }
-
-const BASIC_SETUP = {
-  lineNumbers: true,
-  foldGutter: true,
-  highlightActiveLine: true,
-  bracketMatching: true,
-  autocompletion: false,
-} as const
 
 const stopEvent = (e: React.SyntheticEvent) => e.stopPropagation()
 

@@ -60,17 +60,10 @@ interface ThemeState {
   getGutterBackground: () => string
   getLineNumberColor: () => string
   getActiveLineBackground: () => string
-  getAppBackground: () => string
-  getAppForeground: () => string
   getBorderColor: () => string
   getSurfaceBackground: () => string
-  getPanelBackground: () => string
   getTextMuted: () => string
   getAccentColor: () => string
-  getElementHover: () => string
-  getErrorColor: () => string
-  getWarningColor: () => string
-  getInfoColor: () => string
 }
 
 // Defaults (OLED black)
@@ -173,14 +166,6 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     const t = get().zedTheme?.style
     return t?.['editor.active_line.background'] ?? DEFAULTS.activeLine
   },
-  getAppBackground: () => {
-    const t = get().zedTheme?.style
-    return t?.background ?? DEFAULTS.background
-  },
-  getAppForeground: () => {
-    const t = get().zedTheme?.style
-    return t?.foreground ?? t?.text ?? DEFAULTS.foreground
-  },
   getBorderColor: () => {
     const t = get().zedTheme?.style
     return t?.border ?? DEFAULTS.border
@@ -189,10 +174,6 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     const t = get().zedTheme?.style
     return t?.['surface.background'] ?? t?.['element.background'] ?? DEFAULTS.surface
   },
-  getPanelBackground: () => {
-    const t = get().zedTheme?.style
-    return t?.['panel.background'] ?? t?.background ?? DEFAULTS.panel
-  },
   getTextMuted: () => {
     const t = get().zedTheme?.style
     return t?.['text.muted'] ?? DEFAULTS.textMuted
@@ -200,22 +181,6 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   getAccentColor: () => {
     const t = get().zedTheme?.style
     return t?.['text.accent'] ?? DEFAULTS.accent
-  },
-  getElementHover: () => {
-    const t = get().zedTheme?.style
-    return t?.['element.hover'] ?? DEFAULTS.elementHover
-  },
-  getErrorColor: () => {
-    const t = get().zedTheme?.style
-    return t?.['error'] ?? t?.['error.foreground'] ?? '#e06c75'
-  },
-  getWarningColor: () => {
-    const t = get().zedTheme?.style
-    return t?.['warning'] ?? t?.['warning.foreground'] ?? '#e5c07b'
-  },
-  getInfoColor: () => {
-    const t = get().zedTheme?.style
-    return t?.['info'] ?? t?.['info.foreground'] ?? '#61afef'
   },
 }))
 

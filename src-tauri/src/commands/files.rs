@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-const SKIP_DIRS: &[&str] = &["node_modules", ".git", "target", "dist", ".humanboard"];
+pub(crate) const SKIP_DIRS: &[&str] = &["node_modules", ".git", "target", "dist", ".humanboard"];
 const MAX_FILE_SIZE: u64 = 5 * 1024 * 1024; // 5MB
 
 #[derive(Serialize, Clone)]

@@ -216,15 +216,6 @@ async function doConnect(language: string, vaultPath: string, key: string): Prom
 }
 
 /**
- * Get an existing LSPClient if one is connected for this language.
- * Does NOT start a new server — use getLspClient() for that.
- */
-export function getConnectedClient(language: string, vaultPath: string): LSPClient | null {
-  const entry = clients.get(clientKey(language, vaultPath))
-  return entry?.client.connected ? entry.client : null
-}
-
-/**
  * Disconnect and clean up all LSP clients (e.g. on vault switch).
  */
 export function disconnectAll() {
@@ -234,19 +225,6 @@ export function disconnectAll() {
     invoke('lsp_stop', { serverId: entry.serverId }).catch(() => {})
   }
   clients.clear()
-}
-
-/**
- * Disconnect a specific language server.
- */
-export function disconnectLanguage(language: string, vaultPath: string) {
-  const key = clientKey(language, vaultPath)
-  const entry = clients.get(key)
-  if (!entry) return
-  entry.client.disconnect()
-  entry.unlisten?.()
-  invoke('lsp_stop', { serverId: entry.serverId }).catch(() => {})
-  clients.delete(key)
 }
 
 /**

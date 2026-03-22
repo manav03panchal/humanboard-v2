@@ -7,7 +7,7 @@ pub fn get_git_branch(vault_path: String) -> Option<String> {
     let content = fs::read_to_string(head_path).ok()?;
     let trimmed = content.trim();
     if let Some(ref_path) = trimmed.strip_prefix("ref: refs/heads/") {
-        Some(ref_path.to_string())
+        Some(ref_path.to_owned())
     } else {
         // Detached HEAD — return short hash
         Some(trimmed.chars().take(7).collect())
@@ -45,7 +45,7 @@ pub fn init_vault(path: String, vault_root: tauri::State<'_, crate::VaultRoot>) 
                 .map_err(|e| format!("Cannot update .gitignore: {e}"))?;
         }
     }
-    *vault_root.0.lock().unwrap() = Some(path.clone());
+    *vault_root.0.lock().unwrap() = Some(path);
     Ok(())
 }
 

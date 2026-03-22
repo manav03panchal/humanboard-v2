@@ -316,11 +316,6 @@ body::-webkit-scrollbar {
   overscroll-behavior: contain !important;
 }
 
-/* All scrollable shape content should contain scroll */
-.shape-scrollable {
-  overscroll-behavior: contain;
-}
-
 /* Status bar pulse animation for LSP indexing */
 @keyframes pulse {
   0%, 100% { opacity: 1; }

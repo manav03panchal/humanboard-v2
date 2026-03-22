@@ -9,10 +9,9 @@ interface PtyStore {
   sessions: Map<string, PtySession>
   addSession: (ptyId: string, shapeId: string, shell: string) => void
   removeSession: (ptyId: string) => void
-  getSession: (ptyId: string) => PtySession | undefined
 }
 
-export const usePtyStore = create<PtyStore>((set, get) => ({
+export const usePtyStore = create<PtyStore>((set) => ({
   sessions: new Map(),
 
   addSession: (ptyId, shapeId, shell) => {
@@ -30,6 +29,4 @@ export const usePtyStore = create<PtyStore>((set, get) => ({
       return { sessions }
     })
   },
-
-  getSession: (ptyId) => get().sessions.get(ptyId),
 }))

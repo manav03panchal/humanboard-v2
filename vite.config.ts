@@ -2,7 +2,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
@@ -21,20 +20,13 @@ export default defineConfig(async () => ({
     cssMinify: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          tldraw: ['tldraw'],
-          'codemirror-core': [
-            '@uiw/react-codemirror',
-            '@codemirror/language',
-            '@codemirror/state',
-            '@codemirror/view',
-            '@codemirror/lint',
-            '@lezer/highlight',
-          ],
-          xterm: ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-webgl', '@xterm/addon-ligatures'],
-          markdown: ['react-markdown', 'remark-math', 'rehype-katex', 'rehype-highlight', 'rehype-sanitize'],
-          pdf: ['react-pdf'],
-          icons: ['lucide-react'],
+        manualChunks(id: string) {
+          if (id.includes('tldraw')) return 'tldraw'
+          if (id.includes('@uiw/react-codemirror') || id.includes('@codemirror/') || id.includes('@lezer/')) return 'codemirror-core'
+          if (id.includes('@xterm/')) return 'xterm'
+          if (id.includes('react-markdown') || id.includes('remark-math') || id.includes('rehype-katex') || id.includes('rehype-highlight') || id.includes('rehype-sanitize')) return 'markdown'
+          if (id.includes('react-pdf')) return 'pdf'
+          if (id.includes('lucide-react')) return 'icons'
         },
       },
     },
